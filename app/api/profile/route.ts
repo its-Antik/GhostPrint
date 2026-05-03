@@ -60,6 +60,8 @@ export async function POST(req: NextRequest) {
     if (body.bw_rate !== undefined) payload.bw_rate = body.bw_rate;
     if (body.color_rate !== undefined) payload.color_rate = body.color_rate;
     if (body.balance !== undefined) payload.balance = body.balance;
+    if (body.dues !== undefined) payload.dues = body.dues;
+    if (body.bonus !== undefined) payload.bonus = body.bonus;
 
     // First, try UPDATE (profile should already exist from signIn callback)
     const { data: updated, error: updateError, count } = await supabaseAdmin
@@ -84,7 +86,9 @@ export async function POST(req: NextRequest) {
       department: body.department || "",
       whatsapp_no: body.whatsapp_no || "",
       is_runner_active: body.is_runner_active || false,
-      balance: body.balance !== undefined ? body.balance : 25, // ₹25 signup bonus
+      balance: body.balance !== undefined ? body.balance : 0,
+      dues: body.dues !== undefined ? body.dues : 0,
+      bonus: body.bonus !== undefined ? body.bonus : 25, // ₹25 signup bonus
       bw_rate: body.bw_rate || 2,
       color_rate: body.color_rate || 5,
       updated_at: new Date().toISOString(),

@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { User, ShoppingBag, Truck, BarChart3, Settings, CheckCircle2, ShieldCheck, Info, Search, MapPin, Zap, Star, Eye, X, Check } from "lucide-react";
@@ -27,7 +28,8 @@ export default function Dashboard() {
   const [availableOrders, setAvailableOrders] = useState<any[]>([]);
   const [activePickups, setActivePickups] = useState<any[]>([]);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
-  const [runnerBalance, setRunnerBalance] = useState(0);
+  const [runnerDues, setRunnerDues] = useState(0);
+  const [runnerBonus, setRunnerBonus] = useState(25);
   const [runnerRates, setRunnerRates] = useState<{ bw_rate: number; color_rate: number }>({ bw_rate: 2, color_rate: 5 });
   const [jobsCompleted, setJobsCompleted] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
@@ -65,7 +67,8 @@ export default function Dashboard() {
 
       const profileJson = await profileRes.json();
       if (profileJson.profile) {
-        setRunnerBalance(Number(profileJson.profile.balance) || 0);
+        setRunnerDues(Number(profileJson.profile.dues) || 0);
+        setRunnerBonus(Number(profileJson.profile.bonus) || 25);
         setRunnerRates({
           bw_rate: profileJson.profile.bw_rate || 2,
           color_rate: profileJson.profile.color_rate || 5,
@@ -411,7 +414,7 @@ export default function Dashboard() {
         onVerify={async () => {
           if (!currentOrder) return;
           await updateOrderStatus(currentOrder.id, 'delivered');
-          // Deduct 10% platform commission from runner wallet
+          // Add 10% platform commission to runner dues
           const runnerCharge = Number(currentOrder.total_price) || 0;
           let baseCost = 0;
           if (currentOrder.file_metadata) {
@@ -424,12 +427,12 @@ export default function Dashboard() {
           const isBaseRate = runnerCharge <= baseCost;
           if (!isBaseRate) {
             const platformFee = Math.round(runnerCharge * 0.10);
-            const newBalance = runnerBalance - platformFee;
-            setRunnerBalance(newBalance);
+            const newDues = runnerDues + platformFee;
+            setRunnerDues(newDues);
             await fetch('/api/profile', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ balance: newBalance })
+              body: JSON.stringify({ dues: newDues })
             });
           }
           fetchRunnerOrders();
@@ -438,11 +441,17 @@ export default function Dashboard() {
       
       {/* HEADER / NAVIGATION */}
       <nav className="flex items-center justify-between px-8 py-4 border-b border-[#3c4043] bg-[#202124] sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <div className="w-10 h-10 rounded flex items-center justify-center overflow-hidden">
-            <img src="/Logo.jpg" alt="GhostPrint" className="w-full h-full object-cover rounded-md" />
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2 text-[#9aa0a6] hover:text-white transition-colors bg-[#292a2d] hover:bg-[#3c4043] px-3 py-1.5 rounded-lg border border-[#3c4043] text-sm font-medium cursor-pointer">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+            Home
+          </Link>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded flex items-center justify-center overflow-hidden">
+              <img src="/Logo.jpg" alt="GhostPrint" className="w-full h-full object-cover rounded-md" />
+            </div>
+            <span className="font-bold tracking-tight">GhostPrint</span>
           </div>
-          <span className="font-bold tracking-tight">GhostPrint</span>
         </div>
 
         {/* THE MODE SWITCHER */}
@@ -744,133 +753,114 @@ export default function Dashboard() {
                   </motion.div>
                 )}
 
-                {runnerTab === "wallet" && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-3xl space-y-6">
-                    <h2 className="text-xl font-medium text-white mb-4">Runner Wallet</h2>
-                    
-                    {/* Account Restricted Overlay */}
-                    {runnerBalance <= -50 && (
-                      <div className="bg-[#ea4335]/10 border-2 border-[#ea4335] rounded-xl p-8 text-center">
-                        <div className="w-16 h-16 bg-[#ea4335]/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <ShieldCheck size={32} className="text-[#ea4335]" />
+                {runnerTab === "wallet" && (() => {
+                  const netDues = Math.max(0, runnerDues - runnerBonus);
+                  const hasDues = netDues > 0;
+                  return (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl space-y-6">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="text-xl font-medium text-white">Runner Wallet</h2>
+                      <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                          <Star size={18} className="text-[#202124]" />
                         </div>
-                        <h3 className="text-xl font-bold text-[#ea4335] mb-2">Account Restricted</h3>
-                        <p className="text-[#9aa0a6] text-sm mb-1">Your platform dues have reached the ₹50 limit.</p>
-                        <p className="text-[#9aa0a6] text-sm mb-6">Clear your dues to resume accepting jobs.</p>
-                        <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-4 mb-6 max-w-xs mx-auto">
-                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Amount Due</p>
-                          <p className="text-3xl font-bold text-[#ea4335]">₹{Math.abs(runnerBalance)}</p>
+                        <div>
+                          <p className="text-[10px] text-amber-400/70 uppercase tracking-wider font-medium">Bonus Credits</p>
+                          <p className="text-xl font-bold text-amber-400">{'\u20B9'}{runnerBonus}</p>
                         </div>
-                        <button className="bg-[#ea4335] text-white font-bold py-3 px-8 rounded-xl hover:bg-[#d93025] transition-colors text-base">
-                          Clear Dues — Pay ₹{Math.abs(runnerBalance)}
-                        </button>
-                        <p className="text-xs text-[#5f6368] mt-3">Pay via UPI/QR to the GhostPrint admin to reset your account.</p>
                       </div>
-                    )}
-
-                    {/* Normal Wallet View */}
-                    {runnerBalance > -50 && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Left: Balance Card */}
-                        <div className={`p-6 rounded-xl border transition-all flex flex-col justify-between ${
-                          runnerBalance >= 0 
-                            ? 'bg-[#292a2d] border-[#81c995]/50' 
-                            : 'bg-[#292a2d] border-[#fde293]/50'
-                        }`}>
-                          <div>
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <p className="text-xs text-[#9aa0a6] uppercase tracking-wider">Wallet Balance</p>
-                                <div className="relative group/tooltip cursor-help">
-                                  <Info size={14} className="text-[#5f6368] hover:text-[#9aa0a6] transition-colors" />
-                                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 p-2 rounded bg-[#202124] border border-[#5f6368] text-xs text-[#e8eaed] opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all shadow-md z-50 text-center">
-                                    New accounts start with ₹25 signup bonus. 10% platform fee deducted per completed order.
-                                  </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className={`p-6 rounded-xl border transition-all flex flex-col justify-between ${
+                        hasDues ? 'bg-[#292a2d] border-[#fde293]/50' : 'bg-[#292a2d] border-[#81c995]/50'
+                      }`}>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-[#9aa0a6] uppercase tracking-wider">Net Dues</p>
+                              <div className="relative group/tooltip cursor-help">
+                                <Info size={14} className="text-[#5f6368] hover:text-[#9aa0a6] transition-colors" />
+                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 p-2 rounded bg-[#202124] border border-[#5f6368] text-xs text-[#e8eaed] opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all shadow-md z-50 text-center">
+                                  Net Dues = Total Dues - Bonus Credits. When bonus covers your dues, you are all clear!
                                 </div>
                               </div>
-                              {runnerBalance >= 0 
-                                ? <span className="bg-[#81c995]/20 text-[#81c995] text-[10px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Active</span>
-                                : <span className="bg-[#fde293]/20 text-[#fde293] text-[10px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Dues</span>
-                              }
                             </div>
-                            
-                            <p className={`text-4xl font-bold tracking-tight ${runnerBalance >= 0 ? 'text-[#81c995]' : 'text-[#fde293]'}`}>
-                              {runnerBalance >= 0 ? '₹' : '-₹'}{Math.abs(runnerBalance)}
-                            </p>
-                            
-                            {runnerBalance >= 0 && (
-                              <p className="text-xs text-[#5f6368] mt-2">Includes ₹25 signup bonus</p>
-                            )}
+                            {hasDues
+                              ? <span className="bg-[#fde293]/20 text-[#fde293] text-[10px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">Dues Pending</span>
+                              : <span className="bg-[#81c995]/20 text-[#81c995] text-[10px] px-2 py-0.5 rounded uppercase tracking-wider font-bold">All Clear</span>
+                            }
                           </div>
-
-                          {/* Dues Progress Bar */}
-                          {runnerBalance < 0 && (
-                            <div className="mt-5">
-                              <div className="flex justify-between text-[10px] text-[#9aa0a6] mb-1">
-                                <span>₹0</span>
-                                <span>Limit: -₹50</span>
-                              </div>
-                              <div className="h-2 w-full bg-[#202124] rounded-full overflow-hidden border border-[#3c4043]">
-                                <motion.div 
-                                  initial={{ width: 0 }}
-                                  animate={{ width: `${Math.min(100, (Math.abs(runnerBalance) / 50) * 100)}%` }}
-                                  transition={{ duration: 1, ease: "easeOut" }}
-                                  className={`h-full rounded-full ${Math.abs(runnerBalance) >= 40 ? 'bg-[#ea4335]' : 'bg-[#fde293]'}`}
-                                />
-                              </div>
-                              <p className="text-[10px] text-[#9aa0a6] mt-1">
-                                ₹{Math.abs(runnerBalance)} of ₹50 used — {50 - Math.abs(runnerBalance) > 0 ? `₹${50 - Math.abs(runnerBalance)} remaining` : 'Account will be restricted'}
-                              </p>
-                            </div>
+                          <p className={`text-4xl font-bold tracking-tight ${hasDues ? 'text-[#fde293]' : 'text-[#81c995]'}`}>
+                            {'\u20B9'}{netDues}
+                          </p>
+                          {!hasDues && (
+                            <p className="text-xs text-[#5f6368] mt-2">Your bonus credits cover all platform fees</p>
                           )}
                         </div>
-
-                        {/* Right: Dues Info & Settlement */}
-                        <div className="p-6 bg-[#292a2d] border border-[#3c4043] rounded-xl flex flex-col justify-between hover:border-[#5f6368] transition-colors">
-                          <div>
-                            <h3 className="text-lg font-bold text-white mb-2">Platform Dues</h3>
-                            <p className="text-sm text-[#9aa0a6] leading-relaxed mb-3">
-                              GhostPrint charges a <strong className="text-white">10% commission</strong> on orders where your rate exceeds the base price. No fee if you charge base rate (₹2 B&W / ₹5 Color).
-                            </p>
-                            <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-3 mb-3">
-                              <div className="flex justify-between text-sm">
-                                <span className="text-[#9aa0a6]">Current Dues</span>
-                                <span className={`font-bold ${runnerBalance < 0 ? 'text-[#fde293]' : 'text-[#81c995]'}`}>
-                                  {runnerBalance < 0 ? `₹${Math.abs(runnerBalance)}` : '₹0'}
-                                </span>
-                              </div>
-                              <div className="flex justify-between text-sm mt-1">
-                                <span className="text-[#9aa0a6]">Restriction at</span>
-                                <span className="text-[#ea4335] font-bold">₹50</span>
-                              </div>
-                            </div>
+                        <div className="mt-5 bg-[#202124] border border-[#3c4043] rounded-lg p-3 space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span className="text-[#9aa0a6]">Total Dues (10% fee)</span>
+                            <span className="text-[#e8eaed] font-medium">{'\u20B9'}{runnerDues}</span>
                           </div>
-                          {runnerBalance < 0 ? (
-                            <button className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-xl hover:bg-[#ffe599] transition-colors">
-                              Clear Dues — Pay ₹{Math.abs(runnerBalance)}
-                            </button>
-                          ) : (
-                            <div className="mt-3 bg-[#81c995]/10 border border-[#81c995]/30 rounded-lg p-3 text-center">
-                              <p className="text-[#81c995] text-sm font-medium">✅ No dues — you're all clear!</p>
-                            </div>
-                          )}
+                          <div className="flex justify-between text-sm">
+                            <span className="text-[#9aa0a6]">Bonus Credits</span>
+                            <span className="text-amber-400 font-medium">- {'\u20B9'}{Math.min(runnerBonus, runnerDues)}</span>
+                          </div>
+                          <div className="border-t border-[#3c4043] pt-2 flex justify-between text-sm">
+                            <span className="text-white font-semibold">Amount to Pay</span>
+                            <span className={`font-bold ${hasDues ? 'text-[#fde293]' : 'text-[#81c995]'}`}>{'\u20B9'}{netDues}</span>
+                          </div>
                         </div>
                       </div>
-                    )}
+
+                      <div className="p-6 bg-[#292a2d] border border-[#3c4043] rounded-xl flex flex-col justify-between hover:border-[#5f6368] transition-colors">
+                        <div>
+                          <h3 className="text-lg font-bold text-white mb-2">Platform Dues</h3>
+                          <p className="text-sm text-[#9aa0a6] leading-relaxed mb-3">
+                            GhostPrint charges a <strong className="text-white">10% commission</strong> on orders where your rate exceeds the base price. No fee if you charge base rate ({'\u20B9'}2 B&W / {'\u20B9'}5 Color).
+                          </p>
+                          <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-3 mb-3 space-y-2">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-[#9aa0a6]">Gross Dues</span>
+                              <span className="text-[#e8eaed] font-bold">{'\u20B9'}{runnerDues}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-[#9aa0a6]">Bonus Applied</span>
+                              <span className="text-amber-400 font-bold">{'\u20B9'}{Math.min(runnerBonus, runnerDues)}</span>
+                            </div>
+                            <div className="border-t border-[#3c4043] pt-2 flex justify-between text-sm">
+                              <span className="text-[#9aa0a6]">Net Due</span>
+                              <span className={`font-bold ${hasDues ? 'text-[#fde293]' : 'text-[#81c995]'}`}>{'\u20B9'}{netDues}</span>
+                            </div>
+                          </div>
+                        </div>
+                        {hasDues ? (
+                          <button className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-xl hover:bg-[#ffe599] transition-colors">
+                            Clear Dues {'\u2014'} Pay {'\u20B9'}{netDues}
+                          </button>
+                        ) : (
+                          <div className="mt-3 bg-[#81c995]/10 border border-[#81c995]/30 rounded-lg p-3 text-center">
+                            <p className="text-[#81c995] text-sm font-medium">{'\u2705'} No dues {'\u2014'} you are all clear!</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </motion.div>
-                )}
+                  );
+                })()}
 
                 {runnerTab === "jobs" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                    {/* Restriction Banner */}
-                    {runnerBalance <= -50 && (
-                      <div className="bg-[#ea4335]/10 border border-[#ea4335]/50 rounded-lg p-4 flex items-center gap-3">
-                        <ShieldCheck size={20} className="text-[#ea4335] shrink-0" />
+                    {/* Dues Banner */}
+                    {Math.max(0, runnerDues - runnerBonus) > 50 && (
+                      <div className="bg-[#fde293]/10 border border-[#fde293]/50 rounded-lg p-4 flex items-center gap-3">
+                        <ShieldCheck size={20} className="text-[#fde293] shrink-0" />
                         <div className="flex-1">
-                          <p className="text-[#ea4335] text-sm font-bold">Account Restricted — Dues limit reached</p>
-                          <p className="text-[#9aa0a6] text-xs">Clear your ₹{Math.abs(runnerBalance)} dues in the Wallet tab to accept new jobs.</p>
+                          <p className="text-[#fde293] text-sm font-bold">High Platform Dues</p>
+                          <p className="text-[#9aa0a6] text-xs">You have {`\u20B9`}{Math.max(0, runnerDues - runnerBonus)} in outstanding dues. Visit the Wallet tab to clear them.</p>
                         </div>
-                        <button onClick={() => setRunnerTab("wallet")} className="text-xs bg-[#ea4335] text-white px-3 py-1.5 rounded font-medium hover:bg-[#d93025] transition-colors shrink-0">
+                        <button onClick={() => setRunnerTab("wallet")} className="text-xs bg-[#fde293] text-[#202124] px-3 py-1.5 rounded font-medium hover:bg-[#ffe599] transition-colors shrink-0">
                           Go to Wallet
                         </button>
                       </div>
@@ -975,7 +965,7 @@ export default function Dashboard() {
                                >
                                  <X size={16} /> Ignore
                                </button>
-                               {runnerBalance <= -50 ? (
+                               {Math.max(0, runnerDues - runnerBonus) > 100 ? (
                                   <button 
                                     disabled
                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"

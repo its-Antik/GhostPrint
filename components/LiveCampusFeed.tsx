@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { User, CheckCircle2 } from "lucide-react";
 
 const feedItems = [
@@ -13,42 +12,55 @@ const feedItems = [
   { type: "user", text: "@Neha earned ₹45" },
 ];
 
+function FeedItem({ item }: { item: { type: string; text: string } }) {
+  return (
+    <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-[#1e1f23] border border-white/5 shadow-lg shrink-0">
+      {item.type === "user" ? (
+        <User size={14} className="text-gray-400" />
+      ) : (
+        <CheckCircle2 size={14} className="text-emerald-400" />
+      )}
+      <span className="text-sm font-medium text-gray-300 whitespace-nowrap">
+        {item.text}
+      </span>
+    </div>
+  );
+}
+
 export default function LiveCampusFeed() {
-  // We duplicate the items to create a seamless infinite loop
-  const marqueeItems = [...feedItems, ...feedItems, ...feedItems, ...feedItems];
+  // Duplicate enough for seamless loop
+  const items = [...feedItems, ...feedItems];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 py-4 overflow-hidden bg-gradient-to-t from-black via-black/80 to-transparent pointer-events-none">
-      <div className="relative flex whitespace-nowrap">
-        <motion.div
-          className="flex gap-4 px-4"
-          animate={{ x: [0, -1000] }}
-          transition={{
-            x: {
-              repeat: Infinity,
-              repeatType: "loop",
-              duration: 30,
-              ease: "linear",
-            },
-          }}
-        >
-          {marqueeItems.map((item, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/5 backdrop-blur-md shadow-lg"
-            >
-              {item.type === "user" ? (
-                <User size={14} className="text-gray-400" />
-              ) : (
-                <CheckCircle2 size={14} className="text-emerald-400" />
-              )}
-              <span className="text-sm font-medium text-gray-300">
-                {item.text}
-              </span>
-            </div>
+      <div className="marquee-container">
+        <div className="marquee-track">
+          {items.map((item, i) => (
+            <FeedItem key={`a-${i}`} item={item} />
           ))}
-        </motion.div>
+          {items.map((item, i) => (
+            <FeedItem key={`b-${i}`} item={item} />
+          ))}
+        </div>
       </div>
+      <style jsx>{`
+        .marquee-container {
+          overflow: hidden;
+          width: 100%;
+        }
+        .marquee-track {
+          display: flex;
+          gap: 1rem;
+          padding: 0 1rem;
+          width: max-content;
+          animation: marquee 40s linear infinite;
+          will-change: transform;
+        }
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+      `}</style>
     </div>
   );
 }
