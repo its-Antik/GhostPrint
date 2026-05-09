@@ -4,33 +4,62 @@ import { useState, useEffect } from "react";
 import { Bell, BellOff, ShieldCheck, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Register the service worker and return the registration.
+// This MUST happen before any .ready or .subscribe calls.
+async function registerSW(): Promise<ServiceWorkerRegistration> {
+  const registration = await navigator.serviceWorker.register("/sw.js", {
+    scope: "/",
+  });
+  // Wait until the SW is active (might take a moment on first install)
+  if (registration.installing) {
+    await new Promise<void>((resolve) => {
+      registration.installing!.addEventListener("statechange", (e) => {
+        if ((e.target as ServiceWorker).state === "activated") resolve();
+      });
+    });
+  }
+  return navigator.serviceWorker.ready;
+}
+
 export default function PushNotificationManager() {
   const [isSupported, setIsSupported] = useState(false);
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [permission, setPermission] = useState<NotificationPermission>("default");
   const [isSubscribing, setIsSubscribing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if ("serviceWorker" in navigator && "PushManager" in window) {
       setIsSupported(true);
-      checkSubscription();
       setPermission(Notification.permission);
+
+      // Register SW first, then check existing subscription
+      registerSW()
+        .then(async (reg) => {
+          const sub = await reg.pushManager.getSubscription();
+          setSubscription(sub);
+        })
+        .catch((err) => {
+          console.error("SW registration failed:", err);
+        });
     }
   }, []);
 
-  const checkSubscription = async () => {
-    const registration = await navigator.serviceWorker.ready;
-    const sub = await registration.pushManager.getSubscription();
-    setSubscription(sub);
-  };
-
   const subscribe = async () => {
     setIsSubscribing(true);
+    setError(null);
+
+    // Timeout failsafe — never spin longer than 10 seconds
+    const timeout = setTimeout(() => {
+      setIsSubscribing(false);
+      setError("Timed out. Check browser permissions.");
+    }, 10000);
+
     try {
-      const registration = await navigator.serviceWorker.ready;
-      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY; 
-      
-      if (!publicKey) throw new Error("VAPID public key missing");
+      const registration = await registerSW();
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+
+      if (!publicKey) throw new Error("VAPID public key not configured");
 
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -39,18 +68,27 @@ export default function PushNotificationManager() {
 
       setSubscription(sub);
       setPermission("granted");
-      
+
       // Save subscription to the backend profile
-      await fetch('/api/push/subscribe', { 
-        method: 'POST', 
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ subscription: sub }) 
+      await fetch("/api/push/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription: sub }),
       });
-      
-      console.log("Subscribed:", sub);
-    } catch (err) {
+
+      // Mark notifications_enabled = true in profile
+      await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notifications_enabled: true }),
+      });
+
+      console.log("Push subscribed:", sub.endpoint);
+    } catch (err: any) {
       console.error("Failed to subscribe:", err);
+      setError(err.message || "Subscription failed");
     } finally {
+      clearTimeout(timeout);
       setIsSubscribing(false);
     }
   };
@@ -59,7 +97,18 @@ export default function PushNotificationManager() {
     if (subscription) {
       await subscription.unsubscribe();
       setSubscription(null);
-      // TODO: Remove from backend
+
+      // Clear subscription from backend & disable notifications
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: null }),
+      });
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications_enabled: false }),
+      });
     }
   };
 
@@ -91,21 +140,28 @@ export default function PushNotificationManager() {
 
           <AnimatePresence mode="wait">
             {!subscription ? (
-              <motion.button
-                key="subscribe"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={subscribe}
-                disabled={isSubscribing}
-                className="w-full py-3 rounded-xl bg-[#8ab4f8] text-[#202124] font-bold text-sm hover:bg-[#aecbfa] transition-all flex items-center justify-center gap-2"
-              >
-                {isSubscribing ? (
-                  <div className="w-4 h-4 border-2 border-[#202124]/20 border-t-[#202124] rounded-full animate-spin" />
-                ) : (
-                  <>Enable Notifications</>
+              <div className="space-y-2">
+                <motion.button
+                  key="subscribe"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={subscribe}
+                  disabled={isSubscribing}
+                  className="w-full py-3 rounded-xl bg-[#8ab4f8] text-[#202124] font-bold text-sm hover:bg-[#aecbfa] transition-all flex items-center justify-center gap-2"
+                >
+                  {isSubscribing ? (
+                    <div className="w-4 h-4 border-2 border-[#202124]/20 border-t-[#202124] rounded-full animate-spin" />
+                  ) : error ? (
+                    <>Retry</>
+                  ) : (
+                    <>Enable Notifications</>
+                  )}
+                </motion.button>
+                {error && (
+                  <p className="text-xs text-[#ea4335] text-center">{error}</p>
                 )}
-              </motion.button>
+              </div>
             ) : (
               <motion.div
                 key="subscribed"

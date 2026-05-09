@@ -13,14 +13,27 @@ import UploadManager from "@/components/UploadManager";
 import DebtDashboard from "@/components/DebtDashboard";
 import PushNotificationManager from "@/components/PushNotificationManager";
 import GhostChat from "@/components/GhostChat";
+import GhostPingProvider from "@/components/GhostPing";
+import NotificationBell from "@/components/NotificationBell";
 import { supabase } from "@/lib/supabase";
 import { useSmartRealtime } from "@/hooks/useSmartRealtime";
+import { useNotifications } from "@/hooks/useNotifications";
+import { showGhostPing } from "@/components/GhostPing";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
   const [mode, setMode] = useState<"buyer" | "runner" | "profile">("buyer");
   const [buyerTab, setBuyerTab] = useState<"dashboard" | "orders">("dashboard");
   const [runnerTab, setRunnerTab] = useState<"dashboard" | "jobs" | "orders" | "pricing" | "wallet">("dashboard");
+
+  // Activity dot indicators — tracks which tabs have unseen activity
+  const [tabDots, setTabDots] = useState<{
+    runner: boolean;   // dot on the "Runner" top-level tab
+    jobs: boolean;     // dot on the "Jobs" runner sub-tab
+    orders: boolean;   // dot on the "Orders" runner sub-tab
+    buyer: boolean;    // dot on the "Buyer" top-level tab
+    buyerOrders: boolean; // dot on the buyer "Orders" sub-tab
+  }>({ runner: false, jobs: false, orders: false, buyer: false, buyerOrders: false });
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showHandshakeModal, setShowHandshakeModal] = useState(false);
   const [orderState, setOrderState] = useState<'idle' | 'upload' | 'finding' | 'found' | 'accepted' | 'printing' | 'ready' | 'delivered' | 'cancelled'>('idle');
@@ -28,6 +41,7 @@ export default function Dashboard() {
   const [availableOrders, setAvailableOrders] = useState<any[]>([]);
   const [activePickups, setActivePickups] = useState<any[]>([]);
   const [currentOrder, setCurrentOrder] = useState<any>(null);
+  const [trackingOrder, setTrackingOrder] = useState<any>(null);
   const [runnerDues, setRunnerDues] = useState(0);
   const [runnerBonus, setRunnerBonus] = useState(25);
   const [runnerRates, setRunnerRates] = useState<{ bw_rate: number; color_rate: number }>({ bw_rate: 2, color_rate: 5 });
@@ -35,6 +49,115 @@ export default function Dashboard() {
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [pastOrders, setPastOrders] = useState<any[]>([]);
   const router = useRouter();
+
+  // Notification system
+  const {
+    unreadCount,
+    notifications: notifList,
+    isOpen: notifOpen,
+    togglePanel: toggleNotifPanel,
+    closePanel: closeNotifPanel,
+    markAllRead,
+  } = useNotifications(session?.user?.email || undefined);
+
+  // Listen for new notifications and set activity dots on inactive tabs
+  const prevNotifCount = useRef(unreadCount);
+  useEffect(() => {
+    if (unreadCount > prevNotifCount.current) {
+      const latestNotif = notifList[0];
+      const action = latestNotif?.metadata?.action || '';
+
+      // New gig available → light up Runner tab + Jobs sub-tab
+      if (latestNotif?.title?.includes('Ghost Gig')) {
+        if (mode !== 'runner') {
+          setTabDots(prev => ({ ...prev, runner: true, jobs: true }));
+        } else if (runnerTab !== 'jobs') {
+          setTabDots(prev => ({ ...prev, jobs: true }));
+        }
+      }
+
+      // Order status changes → light up Buyer tab
+      if (['order_accepted', 'printing_started', 'prints_ready', 'delivered'].includes(action)) {
+        if (mode !== 'buyer') {
+          setTabDots(prev => ({ ...prev, buyer: true }));
+        }
+      }
+
+      // Cancellation actions → light up Runner tab + Orders sub-tab
+      if (['buyer_cancelled_free', 'buyer_cancelled_late', 'self_dropped', 'self_dropped_late'].includes(action)) {
+        if (mode !== 'runner') {
+          setTabDots(prev => ({ ...prev, runner: true, orders: true }));
+        } else if (runnerTab !== 'orders') {
+          setTabDots(prev => ({ ...prev, orders: true }));
+        }
+      }
+    }
+    prevNotifCount.current = unreadCount;
+  }, [unreadCount, notifList, mode, runnerTab]);
+
+  // DIRECT orders realtime listener — fires dots even if notification system isn't set up
+  useEffect(() => {
+    if (!session?.user?.email) return;
+
+    const channel = supabase
+      .channel('order_dot_watcher')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'orders' },
+        (payload: any) => {
+          const newOrder = payload.new;
+          // New order posted by someone else → light up Runner + Jobs
+          if (newOrder.buyer_id !== session.user!.email && newOrder.status === 'searching') {
+            if (mode !== 'runner') {
+              setTabDots(prev => ({ ...prev, runner: true, jobs: true }));
+            } else if (runnerTab !== 'jobs') {
+              setTabDots(prev => ({ ...prev, jobs: true }));
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders' },
+        (payload: any) => {
+          const updated = payload.new;
+          // Order I placed got status update → light up Buyer tab
+          if (updated.buyer_id === session.user!.email) {
+            if (mode !== 'buyer') {
+              setTabDots(prev => ({ ...prev, buyer: true }));
+            }
+          }
+          // Order I'm running got cancelled by buyer → light up Runner + Orders
+          if (updated.runner_id === session.user!.email && updated.status === 'cancelled') {
+            if (mode !== 'runner') {
+              setTabDots(prev => ({ ...prev, runner: true, orders: true }));
+            } else if (runnerTab !== 'orders') {
+              setTabDots(prev => ({ ...prev, orders: true }));
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user?.email, mode, runnerTab]);
+
+  // Wrap setMode to clear dots when switching tabs
+  const handleModeSwitch = useCallback((newMode: "buyer" | "runner" | "profile") => {
+    setMode(newMode);
+    if (newMode === 'runner') setTabDots(prev => ({ ...prev, runner: false }));
+    if (newMode === 'buyer') setTabDots(prev => ({ ...prev, buyer: false }));
+  }, []);
+
+  // Wrap setRunnerTab to clear sub-tab dots
+  const handleRunnerTabSwitch = useCallback((tab: "dashboard" | "jobs" | "orders" | "pricing" | "wallet") => {
+    setRunnerTab(tab);
+    if (tab === 'jobs') setTabDots(prev => ({ ...prev, jobs: false }));
+    if (tab === 'orders') setTabDots(prev => ({ ...prev, orders: false }));
+  }, []);
 
   useEffect(() => {
     if (mode === "buyer") window.history.replaceState(null, '', '/buyer');
@@ -153,14 +276,16 @@ export default function Dashboard() {
         if (activeOrder) {
           setCurrentOrder(activeOrder);
           if (activeOrder.status === 'searching') {
+            // Resume the search animation on the dashboard tab
             setOrderState('finding');
-          } else if (activeOrder.status === 'accepted') {
-            setOrderState('found');
+            setBuyerTab('dashboard');
           } else {
-            setOrderState(activeOrder.status as any);
+            // Order is accepted/printing/ready — show dot on Orders tab
+            setOrderState('idle');
+            setBuyerTab('dashboard');
+            setTabDots(prev => ({ ...prev, buyerOrders: true }));
           }
           if (activeOrder.total_price) setEstimatedPrice(activeOrder.total_price);
-          setBuyerTab('dashboard');
         }
       } catch (err) {
         console.error('Failed to check active orders:', err);
@@ -251,6 +376,67 @@ export default function Dashboard() {
     setOrderState('cancelled');
   };
 
+  // SAFETY MODE: Auto-cancel order if buyer leaves during search
+  // Prevents ghost orders where buyer closes tab but order stays active
+  const orderStateRef = useRef(orderState);
+  const currentOrderRef = useRef(currentOrder);
+  orderStateRef.current = orderState;
+  currentOrderRef.current = currentOrder;
+
+  useEffect(() => {
+    if (orderState !== 'finding') return;
+
+    // Show warning toast when search starts
+    showGhostPing(
+      "🔒 Safety Mode Active",
+      "Stay on this tab! Switching tabs or closing the browser will auto-cancel your search.",
+      "info"
+    );
+
+    // 1. Warn before closing/refreshing
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (orderStateRef.current === 'finding') {
+        e.preventDefault();
+        e.returnValue = "Your order search is active. Leaving will cancel it.";
+        return e.returnValue;
+      }
+    };
+
+    // 2. Auto-cancel when user switches to another browser tab
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden' && orderStateRef.current === 'finding') {
+        // Auto-cancel the order
+        if (currentOrderRef.current?.id) {
+          fetch('/api/orders', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              orderId: currentOrderRef.current.id,
+              status: 'cancelled',
+            }),
+          }).catch(console.error);
+        }
+        setOrderState('cancelled');
+        // Show warning when they come back
+        setTimeout(() => {
+          showGhostPing(
+            "⚠️ Search Auto-Cancelled",
+            "Your order was cancelled because you switched tabs. Please stay on this page while searching for a runner.",
+            "system"
+          );
+        }, 500);
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [orderState]);
+
   const handleOrderSubmit = async (files: any[], totalPages: number, totalCost: number, deliveryLocation: string) => {
     try {
       if (status !== "authenticated" || !session?.user) {
@@ -339,15 +525,29 @@ export default function Dashboard() {
           (payload) => {
             console.log('Order update received!', payload);
             const newStatus = payload.new.status;
-            setOrderState(newStatus === 'accepted' ? 'found' : newStatus as any);
             setCurrentOrder(payload.new);
             if (payload.new.total_price) {
               setEstimatedPrice(payload.new.total_price);
             }
-            
-            if (newStatus === 'delivered' || newStatus === 'cancelled') {
-               subscription.unsubscribe();
-               clearInterval(pollInterval);
+
+            if (newStatus === 'accepted') {
+              // Runner accepted! Move order to Orders tab with a dot prompt
+              setOrderState('idle');
+              setBuyerTab('dashboard');
+              setTabDots(prev => ({ ...prev, buyerOrders: true }));
+              showGhostPing(
+                "🎉 Runner Found!",
+                "A runner has accepted your order. Check the Orders tab to track progress.",
+                "info"
+              );
+              subscription.unsubscribe();
+              clearInterval(pollInterval);
+            } else if (newStatus === 'delivered' || newStatus === 'cancelled') {
+              setOrderState(newStatus as any);
+              subscription.unsubscribe();
+              clearInterval(pollInterval);
+            } else {
+              setOrderState(newStatus as any);
             }
           }
         )
@@ -361,11 +561,22 @@ export default function Dashboard() {
           const thisOrder = pollJson.orders?.find((o: any) => o.id === orderId);
           if (thisOrder) {
             const newStatus = thisOrder.status;
-            const mappedState = newStatus === 'accepted' ? 'found' : newStatus;
-            setOrderState(mappedState as any);
             setCurrentOrder(thisOrder);
             if (thisOrder.total_price) setEstimatedPrice(thisOrder.total_price);
-            if (newStatus === 'delivered' || newStatus === 'cancelled') {
+
+            if (newStatus === 'accepted') {
+              setOrderState('idle');
+              setBuyerTab('dashboard');
+              setTabDots(prev => ({ ...prev, buyerOrders: true }));
+              showGhostPing(
+                "🎉 Runner Found!",
+                "A runner has accepted your order. Check the Orders tab to track progress.",
+                "info"
+              );
+              clearInterval(pollInterval);
+              subscription.unsubscribe();
+            } else if (newStatus === 'delivered' || newStatus === 'cancelled') {
+              setOrderState(newStatus as any);
               clearInterval(pollInterval);
               subscription.unsubscribe();
             }
@@ -406,6 +617,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#202124] text-[#e8eaed] font-sans">
+      <GhostPingProvider />
       {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
       <PaymentHandshakeModal 
         isOpen={showHandshakeModal} 
@@ -446,6 +658,12 @@ export default function Dashboard() {
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
             Home
           </Link>
+          {(session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL || session?.user?.email === "antik13sarkar@gmail.com") && (
+            <Link href="/admin" className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/30 text-sm font-medium cursor-pointer">
+              <ShieldCheck size={16} />
+              Admin
+            </Link>
+          )}
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded flex items-center justify-center overflow-hidden">
               <img src="/Logo.jpg" alt="GhostPrint" className="w-full h-full object-cover rounded-md" />
@@ -454,26 +672,62 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* THE MODE SWITCHER */}
+        {/* THE MODE SWITCHER + BELL */}
         <div className="flex items-center gap-2">
           <button 
-            onClick={() => setMode("buyer")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            onClick={() => handleModeSwitch("buyer")}
+            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <ShoppingBag size={16} /> Buyer
+            {tabDots.buyer && mode !== 'buyer' && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#f28b82]"></span>
+              </span>
+            )}
           </button>
           <button 
-            onClick={() => setMode("runner")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            onClick={() => {
+              if (orderState === 'finding') {
+                alert("⚠️ You have an active search running. Cancel the search first to switch tabs.");
+                return;
+              }
+              handleModeSwitch("runner");
+            }}
+            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <Truck size={16} /> Runner
+            {tabDots.runner && mode !== 'runner' && (
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#f28b82]"></span>
+              </span>
+            )}
           </button>
           <button 
-            onClick={() => setMode("profile")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            onClick={() => {
+              if (orderState === 'finding') {
+                alert("⚠️ You have an active search running. Cancel the search first to switch tabs.");
+                return;
+              }
+              handleModeSwitch("profile");
+            }}
+            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             <User size={16} /> Profile
           </button>
+
+          {/* Notification Bell */}
+          <div className="ml-2 border-l border-[#3c4043] pl-3">
+            <NotificationBell
+              unreadCount={unreadCount}
+              notifications={notifList}
+              isOpen={notifOpen}
+              onToggle={toggleNotifPanel}
+              onClose={closeNotifPanel}
+              onMarkAllRead={markAllRead}
+            />
+          </div>
         </div>
       </nav>
 
@@ -490,17 +744,9 @@ export default function Dashboard() {
             >
               {/* BUYER VIEW: ORDER FORM & HISTORY */}
               <div className="flex justify-between items-end border-b border-[#3c4043] pb-4">
-                <div className="flex flex-col gap-3">
-                  {orderState !== 'idle' && orderState !== 'upload' && orderState !== 'cancelled' && (
-                    <button onClick={handleBackToDashboard} className="text-[#9aa0a6] hover:text-white flex items-center gap-2 text-sm font-medium transition-colors w-max">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-                      Back to Dashboard
-                    </button>
-                  )}
-                  <div>
-                    <h1 className="text-2xl font-medium text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'}</h1>
-                    <p className="text-[#9aa0a6] text-sm mt-1">Need something printed today?</p>
-                  </div>
+                <div>
+                  <h1 className="text-2xl font-medium text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'}</h1>
+                  <p className="text-[#9aa0a6] text-sm mt-1">Need something printed today?</p>
                 </div>
                 {orderState === 'idle' && buyerTab === 'dashboard' && (
                   <button 
@@ -512,26 +758,178 @@ export default function Dashboard() {
                 )}
               </div>
 
-              {/* BUYER SUB-TABS */}
-              {(orderState === 'idle' || orderState === 'upload' || orderState === 'cancelled') && (
-                <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3 mb-6">
-                  <button onClick={() => setBuyerTab("dashboard")} className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}>
-                    Dashboard
-                  </button>
-                  <button onClick={() => setBuyerTab("orders")} className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}>
-                    Orders
-                  </button>
-                </div>
-              )}
+              {/* BUYER SUB-TABS — always visible */}
+              <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3 mb-6">
+                <button 
+                  onClick={() => {
+                    if (orderState === 'finding') return; // locked during search
+                    setBuyerTab("dashboard");
+                    setTrackingOrder(null);
+                  }} 
+                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'} ${orderState === 'finding' && buyerTab !== 'dashboard' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Dashboard
+                </button>
+                <button 
+                  onClick={() => {
+                    if (orderState === 'finding') {
+                      alert("⚠️ Cancel your search first to switch tabs.");
+                      return;
+                    }
+                    setBuyerTab("orders");
+                    setTabDots(prev => ({ ...prev, buyerOrders: false }));
+                  }} 
+                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                >
+                  Orders
+                  {tabDots.buyerOrders && buyerTab !== 'orders' && (
+                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
+                    </span>
+                  )}
+                </button>
+              </div>
               
-              {buyerTab === 'orders' && orderState === 'idle' ? (
+              {buyerTab === 'orders' && orderState === 'idle' && trackingOrder ? (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                  <button 
+                    onClick={() => setTrackingOrder(null)} 
+                    className="text-[#9aa0a6] hover:text-white flex items-center gap-2 text-sm font-medium transition-colors"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                    Back to Orders
+                  </button>
+
+                  {['accepted', 'searching'].includes(trackingOrder.status) ? (
+                    <>
+                      <BuyerAcceptedView 
+                        order={trackingOrder} 
+                        onCancel={async () => {
+                          await updateOrderStatus(trackingOrder.id, 'cancelled');
+                          setTrackingOrder(null);
+                        }}
+                      />
+                      {trackingOrder.id && session?.user?.email && (
+                        <GhostChat
+                          orderId={trackingOrder.id}
+                          currentUserEmail={session.user.email}
+                          isRunner={false}
+                          orderStatus={trackingOrder.status}
+                        />
+                      )}
+                    </>
+                  ) : ['printing', 'ready', 'delivered'].includes(trackingOrder.status) ? (
+                    <>
+                      <motion.div 
+                        initial={{ opacity: 0, scale: 0.95 }} 
+                        animate={{ opacity: 1, scale: 1 }} 
+                        className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
+                      >
+                        <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+                          {trackingOrder.status === 'printing' && (
+                            <>
+                              <div className="absolute inset-0 border-4 border-[#fde293]/20 rounded-full"></div>
+                              <div className="absolute inset-0 border-4 border-[#fde293] rounded-full border-t-transparent animate-spin"></div>
+                              <Zap size={32} className="text-[#fde293] animate-pulse" />
+                            </>
+                          )}
+                          {trackingOrder.status === 'ready' && (
+                            <>
+                              <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
+                              <CheckCircle2 size={32} className="text-[#81c995]" />
+                            </>
+                          )}
+                          {trackingOrder.status === 'delivered' && (
+                            <>
+                              <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
+                              <Star size={32} className="text-[#81c995]" />
+                            </>
+                          )}
+                        </div>
+                        <h3 className="text-2xl font-medium text-white mb-2">
+                          {trackingOrder.status === 'printing' ? 'Printing your documents...' : trackingOrder.status === 'ready' ? 'Ready for Pickup!' : 'Job Delivered!'}
+                        </h3>
+                        <p className="text-[#9aa0a6] mb-6">
+                          {trackingOrder.status === 'printing' ? 'Your runner is currently printing the files.' : trackingOrder.status === 'ready' ? 'Meet the runner and share your OTP to collect.' : 'Thank you for using GhostPrint!'}
+                        </p>
+                        <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
+                          <div className="flex justify-between items-start mb-6">
+                            <div>
+                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
+                              <p className="text-lg font-medium text-white">{trackingOrder.runner_id?.split('@')[0] || 'Runner'}</p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
+                              <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
+                            </div>
+                          </div>
+                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Delivery Location</p>
+                          <p className="text-white mb-6 bg-[#3c4043] inline-block px-3 py-1 rounded text-sm">{trackingOrder.delivery_location || 'Campus'}</p>
+                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
+                          <div className="space-y-3">
+                            {trackingOrder.file_metadata?.map((file: any, i: number) => (
+                              <div key={i} className="flex justify-between items-center bg-[#292a2d] p-3 rounded border border-[#3c4043]">
+                                <div>
+                                  <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
+                                  <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>
+                                </div>
+                                {file.url && (
+                                  <button onClick={() => window.open(file.url, '_blank')} className="text-[#8ab4f8] hover:text-[#aecbfa] text-sm font-medium flex items-center gap-1">
+                                    <Eye size={14} /> View
+                                  </button>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                      {trackingOrder.id && session?.user?.email && trackingOrder.status !== 'delivered' && (
+                        <GhostChat
+                          orderId={trackingOrder.id}
+                          currentUserEmail={session.user.email}
+                          isRunner={false}
+                          orderStatus={trackingOrder.status}
+                        />
+                      )}
+                    </>
+                  ) : trackingOrder.status === 'cancelled' ? (
+                    <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center">
+                      <div className="w-16 h-16 bg-[#ea4335]/20 rounded-full flex items-center justify-center mb-4 border border-[#ea4335]">
+                        <X size={32} className="text-[#ea4335]" />
+                      </div>
+                      <h3 className="text-xl font-medium text-white mb-2">Order Cancelled</h3>
+                      <p className="text-[#9aa0a6] mb-6">This order has been cancelled.</p>
+                      <button onClick={() => setTrackingOrder(null)} className="bg-[#8ab4f8] text-[#202124] px-6 py-3 rounded-md font-medium hover:bg-[#aecbfa] transition-colors">
+                        Back to Orders
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </motion.div>
+              ) : buyerTab === 'orders' && orderState === 'idle' ? (
                 <BuyerOrderHistory email={session?.user?.email || ''} onResumeOrder={(order: any) => {
-                  setCurrentOrder(order);
-                  if (order.status === 'searching') setOrderState('finding');
-                  else if (order.status === 'accepted') setOrderState('found');
-                  else setOrderState(order.status as any);
+                  if (order.status === 'searching') {
+                    setCurrentOrder(order);
+                    setOrderState('finding');
+                    setBuyerTab('dashboard');
+                  } else {
+                    // Set tracking order and start polling for updates
+                    setTrackingOrder(order);
+                    const trackPoll = setInterval(async () => {
+                      try {
+                        const res = await fetch(`/api/orders?status=accepted,printing,ready,delivered,cancelled&buyer_id=${encodeURIComponent(session?.user?.email || '')}`);
+                        const json = await res.json();
+                        const updated = json.orders?.find((o: any) => o.id === order.id);
+                        if (updated) {
+                          setTrackingOrder(updated);
+                          if (updated.status === 'delivered' || updated.status === 'cancelled') {
+                            clearInterval(trackPoll);
+                          }
+                        }
+                      } catch {}
+                    }, 4000);
+                  }
                   if (order.total_price) setEstimatedPrice(order.total_price);
-                  setBuyerTab('dashboard');
                 }} />
               ) : orderState === 'upload' ? (
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
@@ -560,7 +958,8 @@ export default function Dashboard() {
                   </div>
                   
                   <h3 className="text-2xl font-medium text-white mb-2">Searching for a Runner</h3>
-                  <p className="text-[#9aa0a6] max-w-sm mx-auto mb-6">Looking for available runners near your campus. This usually takes less than a minute.</p>
+                  <p className="text-[#9aa0a6] max-w-sm mx-auto mb-4">Looking for available runners near your campus. This usually takes less than a minute.</p>
+                  <p className="text-[#9aa0a6]/70 text-xs italic max-w-sm mx-auto mb-6">It is recommended to keep this page open until a runner accepts your order.</p>
 
                   <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-4 w-full max-w-sm text-left mb-8">
                     <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Documents</p>
@@ -587,97 +986,24 @@ export default function Dashboard() {
                     Search Again
                   </button>
                 </motion.div>
-              ) : orderState === 'found' || orderState === 'accepted' ? (
-                <>
-                  <BuyerAcceptedView 
-                    order={currentOrder} 
-                    onCancel={cancelOrder}
-                  />
-                  {currentOrder?.id && session?.user?.email && (
-                    <GhostChat
-                      orderId={currentOrder.id}
-                      currentUserEmail={session.user.email}
-                      isRunner={false}
-                      orderStatus={currentOrder.status || orderState}
-                    />
-                  )}
-                </>
-              ) : ['printing', 'ready', 'delivered'].includes(orderState) ? (
-                <>
+              ) : orderState === 'idle' && tabDots.buyerOrders ? (
                 <motion.div 
-                  initial={{ opacity: 0, scale: 0.95 }} 
-                  animate={{ opacity: 1, scale: 1 }} 
-                  className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
+                  initial={{ opacity: 0, y: 10 }} 
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-[#292a2d] border border-[#8ab4f8]/30 rounded-xl p-10 flex flex-col items-center justify-center text-center"
                 >
-                  <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-                    {orderState === 'printing' && (
-                      <>
-                         <div className="absolute inset-0 border-4 border-[#fde293]/20 rounded-full"></div>
-                         <div className="absolute inset-0 border-4 border-[#fde293] rounded-full border-t-transparent animate-spin"></div>
-                         <Zap size={32} className="text-[#fde293] animate-pulse" />
-                      </>
-                    )}
-                    {orderState === 'ready' && (
-                      <>
-                         <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
-                         <CheckCircle2 size={32} className="text-[#81c995]" />
-                      </>
-                    )}
-                    {orderState === 'delivered' && (
-                      <>
-                         <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
-                         <Star size={32} className="text-[#81c995]" />
-                      </>
-                    )}
+                  <div className="w-16 h-16 bg-[#8ab4f8]/10 rounded-full flex items-center justify-center mb-4 border border-[#8ab4f8]/30">
+                    <CheckCircle2 size={32} className="text-[#8ab4f8]" />
                   </div>
-                  <h3 className="text-2xl font-medium text-white mb-2">
-                    {orderState === 'printing' ? 'Printing your documents...' : orderState === 'ready' ? 'Ready for Pickup!' : 'Job Delivered!'}
-                  </h3>
-                  <p className="text-[#9aa0a6] mb-6">
-                    {orderState === 'printing' ? 'Your runner is currently printing the files.' : orderState === 'ready' ? 'Meet the runner and share your OTP to collect.' : 'Thank you for using GhostPrint!'}
-                  </p>
-
-                  <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
-                     <div className="flex justify-between items-start mb-6">
-                       <div>
-                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
-                          <p className="text-lg font-medium text-white">{currentOrder?.runner_id?.split('@')[0] || 'Runner'}</p>
-                       </div>
-                       <div className="text-right">
-                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
-                          <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{currentOrder?.pickup_code}</p>
-                       </div>
-                     </div>
-                     <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Delivery Location</p>
-                     <p className="text-white mb-6 bg-[#3c4043] inline-block px-3 py-1 rounded text-sm">{currentOrder?.delivery_location || 'Campus'}</p>
-                     <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
-                     <div className="space-y-3">
-                       {currentOrder?.file_metadata?.map((file: any, i: number) => (
-                         <div key={i} className="flex justify-between items-center bg-[#292a2d] p-3 rounded border border-[#3c4043]">
-                            <div>
-                              <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
-                              <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies} Copies</p>
-                            </div>
-                            {file.url && (
-                              <button onClick={() => window.open(file.url, '_blank')} className="text-[#8ab4f8] hover:text-[#aecbfa] text-sm font-medium flex items-center gap-1">
-                                <Eye size={14} /> View
-                              </button>
-                            )}
-                         </div>
-                       ))}
-                     </div>
-                  </div>
+                  <h3 className="text-xl font-medium text-white mb-2">Your Order is Active!</h3>
+                  <p className="text-[#9aa0a6] max-w-sm mx-auto mb-6">To track your order progress or manage cancellations, click the <strong className="text-[#8ab4f8]">Orders</strong> tab above.</p>
+                  <button 
+                    onClick={() => { setBuyerTab('orders'); setTabDots(prev => ({ ...prev, buyerOrders: false })); }}
+                    className="bg-[#8ab4f8] text-[#202124] px-6 py-3 rounded-md font-medium hover:bg-[#aecbfa] transition-colors flex items-center gap-2"
+                  >
+                    <Eye size={16} /> Go to Orders
+                  </button>
                 </motion.div>
-                {/* GhostChat for printing/ready states */}
-                {currentOrder?.id && session?.user?.email && orderState !== 'delivered' && (
-                  <GhostChat
-                    orderId={currentOrder.id}
-                    currentUserEmail={session.user.email}
-                    isRunner={false}
-                    orderStatus={currentOrder.status || orderState}
-                  />
-                )}
-                </>
               ) : (
                 <div className="h-64 bg-[#292a2d] border border-dashed border-[#3c4043] rounded-lg flex items-center justify-center text-[#9aa0a6]">
                   No active orders.
@@ -695,31 +1021,43 @@ export default function Dashboard() {
               {/* RUNNER SUB-TABS */}
               <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3">
                 <button 
-                  onClick={() => setRunnerTab("dashboard")} 
+                  onClick={() => handleRunnerTabSwitch("dashboard")} 
                   className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Dashboard
                 </button>
                 <button 
-                  onClick={() => setRunnerTab("jobs")} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'jobs' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  onClick={() => handleRunnerTabSwitch("jobs")} 
+                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'jobs' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Jobs
+                  {tabDots.jobs && runnerTab !== 'jobs' && (
+                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
+                    </span>
+                  )}
                 </button>
                 <button 
-                  onClick={() => setRunnerTab("orders")} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  onClick={() => handleRunnerTabSwitch("orders")} 
+                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Orders
+                  {tabDots.orders && runnerTab !== 'orders' && (
+                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
+                    </span>
+                  )}
                 </button>
                 <button 
-                  onClick={() => setRunnerTab("pricing")} 
+                  onClick={() => handleRunnerTabSwitch("pricing")} 
                   className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'pricing' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Price Setup
                 </button>
                 <button 
-                  onClick={() => setRunnerTab("wallet")} 
+                  onClick={() => handleRunnerTabSwitch("wallet")} 
                   className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'wallet' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Wallet
@@ -860,7 +1198,7 @@ export default function Dashboard() {
                           <p className="text-[#fde293] text-sm font-bold">High Platform Dues</p>
                           <p className="text-[#9aa0a6] text-xs">You have {`\u20B9`}{Math.max(0, runnerDues - runnerBonus)} in outstanding dues. Visit the Wallet tab to clear them.</p>
                         </div>
-                        <button onClick={() => setRunnerTab("wallet")} className="text-xs bg-[#fde293] text-[#202124] px-3 py-1.5 rounded font-medium hover:bg-[#ffe599] transition-colors shrink-0">
+                        <button onClick={() => handleRunnerTabSwitch("wallet")} className="text-xs bg-[#fde293] text-[#202124] px-3 py-1.5 rounded font-medium hover:bg-[#ffe599] transition-colors shrink-0">
                           Go to Wallet
                         </button>
                       </div>

@@ -384,6 +384,11 @@ export default function LandingPage() {
           </button>
           {session ? (
             <div className="flex items-center gap-4">
+              {(session.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL || session.user?.email === "antik13sarkar@gmail.com") && (
+                <Link href="/admin" className="hidden md:flex items-center gap-2 px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-500/20 transition-all font-semibold text-xs sm:text-sm">
+                  <Shield size={16} /> Admin Message
+                </Link>
+              )}
               <Link href="/dashboard" className="px-4 py-2 sm:px-5 sm:py-2.5 rounded-full bg-indigo-600 text-white hover:bg-indigo-700 transition-all font-semibold text-xs sm:text-sm">
                 Dashboard
               </Link>

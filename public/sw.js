@@ -5,35 +5,60 @@ self.addEventListener('push', function(event) {
       body: data.body,
       icon: '/Logo.jpg',
       badge: '/Logo.jpg',
-      vibrate: [100, 50, 100],
+      vibrate: [200, 100, 200, 100, 200], // Aggressive vibration for campus
+      tag: data.tag || 'ghost-ping', // Prevents duplicate notifications
+      renotify: true,
       data: {
         dateOfArrival: Date.now(),
-        primaryKey: '2',
-        url: data.url || '/'
+        primaryKey: data.primaryKey || '1',
+        url: data.url || '/dashboard'
       },
       actions: [
         {
-          action: 'explore',
-          title: 'View Order',
+          action: 'view',
+          title: '👀 View',
         },
         {
-          action: 'close',
-          title: 'Close',
+          action: 'dismiss',
+          title: 'Dismiss',
         },
       ]
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title, options)
+      self.registration.showNotification(data.title || 'GhostPrint', options)
     );
   }
 });
 
 self.addEventListener('notificationclick', function(event) {
   event.notification.close();
-  if (event.action === 'explore') {
-    event.waitUntil(
-      clients.openWindow(event.notification.data.url)
-    );
+  
+  const url = event.notification.data?.url || '/dashboard';
+  
+  if (event.action === 'dismiss') {
+    return; // Just close
+  }
+  
+  // Open the app or focus existing tab
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function(clientList) {
+      // If app is already open, focus it
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // Otherwise open a new window
+      return clients.openWindow(url);
+    })
+  );
+});
+
+// Background sync — ensures notifications are delivered even on flaky campus WiFi
+self.addEventListener('sync', function(event) {
+  if (event.tag === 'ghost-sync') {
+    // Future: retry failed notification deliveries
   }
 });

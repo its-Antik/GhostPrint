@@ -62,6 +62,7 @@ export async function POST(req: NextRequest) {
     if (body.balance !== undefined) payload.balance = body.balance;
     if (body.dues !== undefined) payload.dues = body.dues;
     if (body.bonus !== undefined) payload.bonus = body.bonus;
+    if (body.notifications_enabled !== undefined) payload.notifications_enabled = body.notifications_enabled;
 
     // First, try UPDATE (profile should already exist from signIn callback)
     const { data: updated, error: updateError, count } = await supabaseAdmin
