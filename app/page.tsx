@@ -5,6 +5,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { motion, AnimatePresence } from "framer-motion";
 import { Printer, Zap, Wallet, ArrowRight, ChevronRight, UploadCloud, MapPin, LogOut, X, Shield, MessageCircle, Users, FileText, Copy, Check, Terminal } from "lucide-react";
 import LiveCampusFeed from "@/components/LiveCampusFeed";
+import CampusExpansion from "@/components/CampusExpansion";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
 import Link from "next/link";
 import Image from "next/image";
@@ -545,6 +546,9 @@ export default function LandingPage() {
           ))}
         </div>
       </section>
+
+      {/* Campus Expansion Leaderboard */}
+      <CampusExpansion />
 
       {/* FAQ Section */}
       <section id="faq" className="relative z-10 py-20 px-6 max-w-3xl mx-auto">

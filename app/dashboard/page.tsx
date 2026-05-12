@@ -96,6 +96,9 @@ export default function Dashboard() {
   }, [unreadCount, notifList, mode, runnerTab]);
 
   // DIRECT orders realtime listener — fires dots even if notification system isn't set up
+  // MULTI-TENANT: Only fires for orders from the user's own campus
+  const userDomain = session?.user?.email?.split('@')[1]?.toLowerCase() || '';
+
   useEffect(() => {
     if (!session?.user?.email) return;
 
@@ -106,6 +109,8 @@ export default function Dashboard() {
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload: any) => {
           const newOrder = payload.new;
+          // TENANT CHECK: Only react to orders from the same campus
+          if (newOrder.college_domain && newOrder.college_domain !== userDomain) return;
           // New order posted by someone else → light up Runner + Jobs
           if (newOrder.buyer_id !== session.user!.email && newOrder.status === 'searching') {
             if (mode !== 'runner') {
@@ -143,7 +148,7 @@ export default function Dashboard() {
       channel.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [session?.user?.email, mode, runnerTab]);
+  }, [session?.user?.email, mode, runnerTab, userDomain]);
 
   // Wrap setMode to clear dots when switching tabs
   const handleModeSwitch = useCallback((newMode: "buyer" | "runner" | "profile") => {
@@ -248,9 +253,11 @@ export default function Dashboard() {
 
   // Smart Realtime: auto-disconnects after 10 min idle or when tab goes to background.
   // Prevents the 500-connection Supabase ceiling from being hit by idle phones.
-  useSmartRealtime('runner_orders_live', {
+  // MULTI-TENANT: Uses domain-scoped channel name for isolation
+  useSmartRealtime(`runner_orders_${userDomain}`, {
     table: 'orders',
     event: '*',
+    filter: userDomain ? `college_domain=eq.${userDomain}` : undefined,
     onPayload: stableFetchRunnerOrders,
     enabled: mode === 'runner' && !!session?.user?.email,
   });

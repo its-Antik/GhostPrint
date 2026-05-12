@@ -57,8 +57,18 @@ export async function POST(req: NextRequest) {
     // 2. Determine recipients
     let recipients = [];
     if (target_email === "all") {
+      // Global broadcast — all users
       const { data: profiles, error } = await supabaseAdmin.from('profiles').select('username');
       if (error) console.error("Error fetching all profiles:", error);
+      if (profiles) recipients = profiles;
+    } else if (target_email.startsWith("all@")) {
+      // MULTI-TENANT: Domain-scoped broadcast — e.g., "all@heritageit.edu.in"
+      const domain = target_email.split("@")[1];
+      const { data: profiles, error } = await supabaseAdmin
+        .from('profiles')
+        .select('username')
+        .eq('college_domain', domain);
+      if (error) console.error("Error fetching campus profiles:", error);
       if (profiles) recipients = profiles;
     } else {
       const { data: profile, error } = await supabaseAdmin

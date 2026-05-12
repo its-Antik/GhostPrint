@@ -76,6 +76,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields including delivery_location" }, { status: 400 });
     }
 
+    // Extract college_domain from the buyer's email for tenant isolation
+    const buyerDomain = session.user.email.split('@')[1]?.toLowerCase() || '';
+
     // Generate random 4-digit OTP at order creation
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
 
@@ -91,6 +94,7 @@ export async function POST(req: NextRequest) {
         file_metadata: file_metadata || [],
         delivery_location: delivery_location,
         pickup_code: otp,
+        college_domain: buyerDomain,
       })
       .select()
       .single();
@@ -103,13 +107,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // NOTIFY ALL ACTIVE RUNNERS: Web Push + In-App
+    // NOTIFY ACTIVE RUNNERS FROM SAME CAMPUS: Web Push + In-App
     try {
-      // Single query — get all active runners with their username and push subscription
-      const { data: activeRunners } = await supabaseAdmin
+      // Only notify runners from the same college domain (tenant isolation)
+      let runnerQuery = supabaseAdmin
         .from("profiles")
         .select("username, push_subscription")
         .eq("is_runner_active", true);
+
+      if (buyerDomain) {
+        runnerQuery = runnerQuery.eq("college_domain", buyerDomain);
+      }
+
+      const { data: activeRunners } = await runnerQuery;
 
       if (activeRunners && activeRunners.length > 0) {
         const pushPayload = JSON.stringify({
@@ -187,16 +197,21 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    // MULTI-TENANT: Extract domain from signed-in user's email
+    const userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
+
     // SECURITY: Enforce ownership
-    // 1. If querying only 'searching' status → runners need to see all available gigs (no ownership filter)
+    // 1. If querying only 'searching' status → runners see gigs FROM THEIR OWN CAMPUS only
     // 2. If querying by runner_id → must match the signed-in user
     // 3. If querying by buyer_id → must match the signed-in user
     // 4. Any other query → must be buyer or runner of the order
     const isSearchingOnly = statusFilter === 'searching';
 
     if (isSearchingOnly) {
-      // Runners browsing available gigs — no ownership filter needed
-      // (these are public orders waiting to be claimed)
+      // TENANT ISOLATION: Only show gigs from the runner's own campus
+      if (userDomain) {
+        query = query.eq('college_domain', userDomain);
+      }
     } else if (runnerId) {
       // Enforce: you can only query YOUR OWN runner orders
       if (runnerId !== userEmail) {

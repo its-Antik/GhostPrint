@@ -13,8 +13,8 @@ export async function POST(req: Request) {
 
     // 1. Send to Telegram (The "Pro Way")
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    // We use the same channel ID or a specific admin ID if available
-    const chatId = process.env.TELEGRAM_CHANNEL_ID; 
+    // Use dedicated support channel (falls back to main channel if not set)
+    const chatId = process.env.TELEGRAM_SUPPORT_CHANNEL_ID || process.env.TELEGRAM_CHANNEL_ID; 
 
     if (botToken && chatId) {
       const text = `🚨 *New Help Request*\n\n*User:* ${session.user.email}\n*Category:* ${category}\n\n*Message:*\n${message}`;
