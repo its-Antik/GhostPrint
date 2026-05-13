@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Printer, Zap, Wallet, ArrowRight, ChevronRight, UploadCloud, MapPin, LogOut, X, Shield, MessageCircle, Users, FileText, Copy, Check, Terminal } from "lucide-react";
 import LiveCampusFeed from "@/components/LiveCampusFeed";
 import CampusExpansion from "@/components/CampusExpansion";
+import MaintenanceOverlay from "@/components/MaintenanceOverlay";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
 import Link from "next/link";
 import Image from "next/image";
@@ -197,6 +198,7 @@ export default function LandingPage() {
 
   return (
     <div className="relative min-h-screen bg-black text-white overflow-hidden font-sans">
+      <MaintenanceOverlay />
 
       {/* Glassmorphism Modal */}
       <AnimatePresence>

@@ -16,6 +16,7 @@ import GhostChat from "@/components/GhostChat";
 import GhostPingProvider from "@/components/GhostPing";
 import NotificationBell from "@/components/NotificationBell";
 import { supabase } from "@/lib/supabase";
+import MaintenanceOverlay from "@/components/MaintenanceOverlay";
 import { useSmartRealtime } from "@/hooks/useSmartRealtime";
 import { useNotifications } from "@/hooks/useNotifications";
 import { showGhostPing } from "@/components/GhostPing";
@@ -625,6 +626,7 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#202124] text-[#e8eaed] font-sans">
       <GhostPingProvider />
+      <MaintenanceOverlay />
       {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
       <PaymentHandshakeModal 
         isOpen={showHandshakeModal} 
