@@ -86,7 +86,28 @@ const handler = NextAuth({
 // Auto-create profile row on first sign-in, tagged with college_domain
 async function ensureProfile(user: any) {
   try {
-    const domain = extractDomain(user.email);
+    let domain = extractDomain(user.email);
+
+    // If the user's email domain isn't a registered campus, assign them to the first active campus
+    // This handles admin accounts (e.g., gmail.com) so their orders are visible to campus runners
+    const { data: college } = await supabaseAdmin
+      .from("colleges")
+      .select("email_domain")
+      .eq("email_domain", domain)
+      .single();
+
+    if (!college) {
+      // Not a recognized campus domain — assign to first active campus
+      const { data: firstCampus } = await supabaseAdmin
+        .from("colleges")
+        .select("email_domain")
+        .eq("is_active", true)
+        .limit(1)
+        .single();
+      if (firstCampus?.email_domain) {
+        domain = firstCampus.email_domain;
+      }
+    }
 
     const { data: existing } = await supabaseAdmin
       .from('profiles')
@@ -108,13 +129,13 @@ async function ensureProfile(user: any) {
         college_domain: domain,
       });
       console.log("Created profile for:", user.email, "domain:", domain);
-    } else if (!existing.college_domain) {
-      // Backfill domain for existing profiles that don't have it
+    } else if (!existing.college_domain || existing.college_domain !== domain) {
+      // Backfill or fix domain for existing profiles
       await supabaseAdmin
         .from('profiles')
         .update({ college_domain: domain })
         .eq('username', user.email);
-      console.log("Backfilled domain for:", user.email, "→", domain);
+      console.log("Updated domain for:", user.email, "→", domain);
     }
   } catch (err) {
     console.error("ensureProfile error:", err);

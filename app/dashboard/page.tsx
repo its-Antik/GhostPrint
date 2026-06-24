@@ -189,7 +189,11 @@ export default function Dashboard() {
       ]);
 
       const searchingJson = await searchingRes.json();
-      if (searchingJson.orders) setAvailableOrders(searchingJson.orders);
+      // SELF-EXCLUSION (defense-in-depth): filter out own orders so buyer can't claim as runner
+      if (searchingJson.orders) {
+        const filtered = searchingJson.orders.filter((o: any) => o.buyer_id !== session.user!.email);
+        setAvailableOrders(filtered);
+      }
 
       const activeJson = await activeRes.json();
       if (activeJson.orders) setActivePickups(activeJson.orders);
@@ -384,64 +388,33 @@ export default function Dashboard() {
     setOrderState('cancelled');
   };
 
-  // SAFETY MODE: Auto-cancel order if buyer leaves during search
-  // Prevents ghost orders where buyer closes tab but order stays active
+  // SAFETY MODE: Warn buyer to stay on tab during search (but don't auto-cancel)
   const orderStateRef = useRef(orderState);
-  const currentOrderRef = useRef(currentOrder);
   orderStateRef.current = orderState;
-  currentOrderRef.current = currentOrder;
 
   useEffect(() => {
     if (orderState !== 'finding') return;
 
-    // Show warning toast when search starts
+    // Show recommendation toast when search starts
     showGhostPing(
       "🔒 Safety Mode Active",
-      "Stay on this tab! Switching tabs or closing the browser will auto-cancel your search.",
+      "It's recommended to stay on this tab while we search for a runner.",
       "info"
     );
 
-    // 1. Warn before closing/refreshing
+    // Warn before closing/refreshing
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (orderStateRef.current === 'finding') {
         e.preventDefault();
-        e.returnValue = "Your order search is active. Leaving will cancel it.";
+        e.returnValue = "Your order search is active. Leaving may interrupt it.";
         return e.returnValue;
       }
     };
 
-    // 2. Auto-cancel when user switches to another browser tab
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'hidden' && orderStateRef.current === 'finding') {
-        // Auto-cancel the order
-        if (currentOrderRef.current?.id) {
-          fetch('/api/orders', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              orderId: currentOrderRef.current.id,
-              status: 'cancelled',
-            }),
-          }).catch(console.error);
-        }
-        setOrderState('cancelled');
-        // Show warning when they come back
-        setTimeout(() => {
-          showGhostPing(
-            "⚠️ Search Auto-Cancelled",
-            "Your order was cancelled because you switched tabs. Please stay on this page while searching for a runner.",
-            "system"
-          );
-        }, 500);
-      }
-    };
-
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [orderState]);
 
@@ -452,27 +425,60 @@ export default function Dashboard() {
         return;
       }
 
+      // Pre-validate file sizes before starting (50MB Telegram limit)
+      const MAX_FILE_SIZE = 50 * 1024 * 1024;
+      const oversized = files.filter(f => f.file.size > MAX_FILE_SIZE);
+      if (oversized.length > 0) {
+        alert(`These files are too large (max 50MB):\n${oversized.map(f => `• ${f.name} (${(f.file.size / 1024 / 1024).toFixed(1)}MB)`).join('\n')}\n\nPlease remove them and try again.`);
+        return;
+      }
+
       setEstimatedPrice(totalCost);
       setOrderState('finding');
 
       // 1. Upload files to Telegram via bot for unlimited storage
       const fileMetadata = [];
+      let uploadFailed = false;
+
       for (const f of files) {
         const formData = new FormData();
         formData.append("file", f.file);
 
-        try {
-          const response = await fetch("/api/telegram-upload", {
-            method: "POST",
-            body: formData
-          });
+        // Helper: upload with timeout and single retry
+        const attemptUpload = async (attempt: number): Promise<any> => {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 150_000); // 2.5 min timeout
 
-          if (!response.ok) {
-            const errData = await response.json();
-            throw new Error(errData.error || "Telegram upload failed");
+          try {
+            const response = await fetch("/api/telegram-upload", {
+              method: "POST",
+              body: formData,
+              signal: controller.signal,
+            });
+
+            if (!response.ok) {
+              const errData = await response.json().catch(() => ({ error: "Upload failed" }));
+              throw new Error(errData.error || `Upload failed (HTTP ${response.status})`);
+            }
+
+            return await response.json();
+          } catch (err: any) {
+            if (err.name === "AbortError") {
+              throw new Error("Upload timed out — your connection may be slow. Please try again.");
+            }
+            // Retry once on transient network errors
+            if (attempt < 1 && (err.message === "fetch failed" || err.message === "Failed to fetch")) {
+              console.warn(`Upload attempt ${attempt + 1} failed for ${f.name}, retrying...`);
+              return attemptUpload(attempt + 1);
+            }
+            throw err;
+          } finally {
+            clearTimeout(timeout);
           }
+        };
 
-          const data = await response.json();
+        try {
+          const data = await attemptUpload(0);
           fileMetadata.push({
             name: f.name,
             pages: f.pages,
@@ -481,8 +487,14 @@ export default function Dashboard() {
             file_id: data.file_id,   // Telegram file_id for re-fetching
             colorMode: f.colorMode
           });
-        } catch (uploadErr) {
+        } catch (uploadErr: any) {
           console.error("Upload error for", f.name, uploadErr);
+          uploadFailed = true;
+          showGhostPing(
+            "⚠️ Upload Failed",
+            `"${f.name}" couldn't be uploaded: ${uploadErr.message}. The order will proceed without this file.`,
+            "system"
+          );
           fileMetadata.push({
             name: f.name,
             pages: f.pages,
@@ -492,6 +504,17 @@ export default function Dashboard() {
             colorMode: f.colorMode
           });
         }
+      }
+
+      // If ALL files failed to upload, abort the order
+      if (fileMetadata.every(f => !f.url)) {
+        showGhostPing(
+          "❌ Upload Failed",
+          "None of the files could be uploaded. Please check your internet connection and try again.",
+          "system"
+        );
+        setOrderState('upload');
+        return;
       }
 
       // 2. Create order via server API route (bypasses RLS)
@@ -697,13 +720,9 @@ export default function Dashboard() {
           </button>
           <button 
             onClick={() => {
-              if (orderState === 'finding') {
-                alert("⚠️ You have an active search running. Cancel the search first to switch tabs.");
-                return;
-              }
               handleModeSwitch("runner");
             }}
-            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <Truck size={16} /> Runner
             {tabDots.runner && mode !== 'runner' && (
@@ -715,13 +734,9 @@ export default function Dashboard() {
           </button>
           <button 
             onClick={() => {
-              if (orderState === 'finding') {
-                alert("⚠️ You have an active search running. Cancel the search first to switch tabs.");
-                return;
-              }
               handleModeSwitch("profile");
             }}
-            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
+            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <User size={16} /> Profile
           </button>
@@ -771,20 +786,15 @@ export default function Dashboard() {
               <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3 mb-6">
                 <button 
                   onClick={() => {
-                    if (orderState === 'finding') return; // locked during search
                     setBuyerTab("dashboard");
                     setTrackingOrder(null);
                   }} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'} ${orderState === 'finding' && buyerTab !== 'dashboard' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
                 >
                   Dashboard
                 </button>
                 <button 
                   onClick={() => {
-                    if (orderState === 'finding') {
-                      alert("⚠️ Cancel your search first to switch tabs.");
-                      return;
-                    }
                     setBuyerTab("orders");
                     setTabDots(prev => ({ ...prev, buyerOrders: false }));
                   }} 

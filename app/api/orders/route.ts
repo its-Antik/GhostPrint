@@ -76,8 +76,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing required fields including delivery_location" }, { status: 400 });
     }
 
-    // Extract college_domain from the buyer's email for tenant isolation
-    const buyerDomain = session.user.email.split('@')[1]?.toLowerCase() || '';
+    // Get college_domain from the buyer's profile for correct tenant tagging
+    // This ensures admin/non-campus accounts use their assigned campus domain
+    let buyerDomain = session.user.email.split('@')[1]?.toLowerCase() || '';
+    try {
+      const { data: buyerProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('college_domain')
+        .eq('username', session.user.email)
+        .single();
+      if (buyerProfile?.college_domain) {
+        buyerDomain = buyerProfile.college_domain;
+      }
+    } catch (_) {
+      // Fallback to email-derived domain
+    }
 
     // Generate random 4-digit OTP at order creation
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -197,11 +210,25 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // MULTI-TENANT: Extract domain from signed-in user's email
-    const userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
+    // MULTI-TENANT: Look up the user's college_domain from their profile
+    // This ensures admin accounts (e.g., gmail.com) correctly match their assigned campus
+    let userDomain = userEmail.split('@')[1]?.toLowerCase() || '';
+    try {
+      const { data: userProfile } = await supabaseAdmin
+        .from('profiles')
+        .select('college_domain')
+        .eq('username', userEmail)
+        .single();
+      if (userProfile?.college_domain) {
+        userDomain = userProfile.college_domain;
+      }
+    } catch (_) {
+      // Fallback to email-derived domain if profile lookup fails
+    }
 
     // SECURITY: Enforce ownership
     // 1. If querying only 'searching' status → runners see gigs FROM THEIR OWN CAMPUS only
+    //    ALSO excludes the user's own orders (buyer can't see their own gig as a runner)
     // 2. If querying by runner_id → must match the signed-in user
     // 3. If querying by buyer_id → must match the signed-in user
     // 4. Any other query → must be buyer or runner of the order
@@ -212,6 +239,8 @@ export async function GET(req: NextRequest) {
       if (userDomain) {
         query = query.eq('college_domain', userDomain);
       }
+      // SELF-EXCLUSION: A buyer must never see their own order in the runner's gig list
+      query = query.neq('buyer_id', userEmail);
     } else if (runnerId) {
       // Enforce: you can only query YOUR OWN runner orders
       if (runnerId !== userEmail) {
@@ -262,6 +291,19 @@ export async function PATCH(req: NextRequest) {
 
     // If runner is claiming the job, recalculate price based on runner's rates
     if (updates.status === 'accepted' && updates.runner_id) {
+      // SELF-CLAIM GUARD: Prevent a buyer from claiming their own order
+      const { data: orderCheck } = await supabaseAdmin
+        .from('orders')
+        .select('buyer_id')
+        .eq('id', order_id)
+        .single();
+      if (orderCheck && orderCheck.buyer_id === session.user.email) {
+        return NextResponse.json(
+          { error: "You cannot claim your own order." },
+          { status: 403 }
+        );
+      }
+
       // Fetch runner's rates
       const { data: runnerProfile } = await supabaseAdmin
         .from('profiles')
