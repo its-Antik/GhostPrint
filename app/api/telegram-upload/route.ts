@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
     const telegramForm = new FormData();
     telegramForm.append("chat_id", CHANNEL_ID);
     telegramForm.append("document", new Blob([buffer], { type: file.type }), file.name);
-    telegramForm.append("caption", `📦 GhostPrint Upload: ${file.name}`);
+    telegramForm.append("caption", `📦 Pagen Upload: ${file.name}`);
 
     const controller = new AbortController();
     const uploadTimeout = setTimeout(() => controller.abort(), 120_000); // 2 min timeout

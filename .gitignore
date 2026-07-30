@@ -31,6 +31,6 @@ yarn-error.log*
 .vercel
 
 # GhostPrint specific
-ghost_chat_schema.sql
-ghost_anti_fraud.sql
-ghost_privacy_cleanup.sql
+pagen_chat_schema.sql
+pagen_anti_fraud.sql
+pagen_privacy_cleanup.sql

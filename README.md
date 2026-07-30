@@ -1,8 +1,8 @@
-# 👻 GhostPrint — The Blueprint
+# 📄 Pagen — The Blueprint
 
 **High-Performance P2P Campus Print Network**
 
-GhostPrint is a decentralized printing ecosystem designed for college campuses. It connects students who need prints (Buyers) with students who own printers (Runners) through a real-time peer-to-peer marketplace.
+Pagen is a decentralized printing ecosystem designed for college campuses. It connects students who need prints (Buyers) with students who own printers (Runners) through a real-time peer-to-peer marketplace.
 
 ---
 
@@ -38,7 +38,7 @@ GhostPrint is a decentralized printing ecosystem designed for college campuses. 
 │          push_subscriptions, support_tickets         │
 │  Views: campus_leaderboard                           │
 │  Realtime: orders, notifications, chat_messages      │
-│  Cron: ghost-maintenance (cleanup every 6h)          │
+│  Cron: pagen-maintenance (cleanup every 6h)          │
 └──────────────────────────────────────────────────────┘
                        │
                        ▼
@@ -56,8 +56,8 @@ GhostPrint is a decentralized printing ecosystem designed for college campuses. 
 
 ### 1. Clone & Install
 ```bash
-git clone https://github.com/its-Antik/GhostPrint.git
-cd GhostPrint
+git clone https://github.com/its-Antik/Pagen.git
+cd Pagen
 npm install
 ```
 
@@ -87,14 +87,14 @@ Run these SQL scripts **in order** in Supabase SQL Editor:
 1. `profiles_schema.sql` — User profiles with runner rates & balances
 2. `orders_schema.sql` — Orders table with status enum
 3. `fix_fk.sql` — Removes FK constraint to auth.users (NextAuth compat)
-4. `ghost_chat_schema.sql` — Chat messages between buyer & runner
+4. `pagen_chat_schema.sql` — Chat messages between buyer & runner
 5. `notifications_schema.sql` — In-app notification system + realtime
-6. `ghost_anti_fraud.sql` — Anti-fraud triggers & rate limiting
-7. `ghost_privacy_cleanup.sql` — Auto-cleanup of sensitive data
+6. `pagen_anti_fraud.sql` — Anti-fraud triggers & rate limiting
+7. `pagen_privacy_cleanup.sql` — Auto-cleanup of sensitive data
 8. `expansion_schema.sql` — Campus expansion request system
 9. `expansion_normalization.sql` — Domain-first grouping fix
 10. `multi_tenant_schema.sql` — Multi-campus isolation (colleges table)
-11. `ghost_maintenance.sql` — Auto-cleanup cron + global_settings kill-switch
+11. `pagen_maintenance.sql` — Auto-cleanup cron + global_settings kill-switch
 
 ### 4. Run Locally
 ```bash
@@ -247,7 +247,7 @@ Even though the app uses service role, these RLS policies exist as a safety net:
 
 ### Safety Mechanisms
 - **Order Safety Mode:** Auto-cancels `searching` orders if buyer switches tabs
-- **Anti-Fraud:** `ghost_anti_fraud.sql` triggers prevent order manipulation
+- **Anti-Fraud:** `pagen_anti_fraud.sql` triggers prevent order manipulation
 - **Race Condition Guard:** Job claiming uses `.is('runner_id', null)` + returns `409` on conflict
 - **Notification Pruning:** Max 10 per user, auto-cleaned
 - **Auto-Cleanup Cron:** Completed/cancelled orders deleted after 24 hours
@@ -277,17 +277,17 @@ Even though the app uses service role, these RLS policies exist as a safety net:
 ### Automated Jobs
 | Job | Schedule | Action |
 |-----|----------|--------|
-| `ghost-maintenance` | Every 6 hours | Deletes `delivered`/`cancelled` orders older than 24 hours + orphaned chat messages |
+| `pagen-maintenance` | Every 6 hours | Deletes `delivered`/`cancelled` orders older than 24 hours + orphaned chat messages |
 
 ---
 
 ## 🔌 Realtime Architecture
 
-GhostPrint uses Supabase Realtime with smart lifecycle management:
+Pagen uses Supabase Realtime with smart lifecycle management:
 
 1. **`useSmartRealtime` hook** — Auto-disconnects after 10 min idle or when tab backgrounds. Prevents hitting Supabase's 500-connection ceiling from idle phones.
 2. **Order Dot Watcher** — Direct Postgres listener on `orders` table INSERT/UPDATE for activity dots, scoped by `college_domain`.
-3. **Notification Listener** — Postgres listener on `notifications` table for the bell icon + GhostPing toasts.
+3. **Notification Listener** — Postgres listener on `notifications` table for the bell icon + PagenPing toasts.
 4. **Polling Fallback** — 5-second polling for order tracking (since RLS may block Realtime for NextAuth users).
 
 ---
@@ -307,7 +307,7 @@ If something goes wrong during exams or a major bug appears:
 ## 📁 File Structure
 
 ```
-Ghost Printer/
+Pagen/
 ├── app/
 │   ├── page.tsx                    # Landing page (3D + steps + expansion)
 │   ├── dashboard/page.tsx          # Main buyer/runner dashboard
@@ -333,8 +333,8 @@ Ghost Printer/
 ├── components/
 │   ├── CampusExpansion.tsx         # Expansion request + leaderboard
 │   ├── DebtDashboard.tsx           # Runner dues tracker
-│   ├── GhostChat.tsx               # Per-order chat widget
-│   ├── GhostPing.tsx               # Toast notification system
+│   ├── PagenChat.tsx               # Per-order chat widget
+│   ├── PagenPing.tsx               # Toast notification system
 │   ├── LiveCampusFeed.tsx          # Scrolling campus activity ticker
 │   ├── MaintenanceOverlay.tsx      # Kill-switch terminal overlay
 │   ├── NotificationBell.tsx        # Header notification bell

@@ -126,7 +126,7 @@ export default function PushNotificationManager() {
             {subscription ? <Bell size={20} /> : <BellOff size={20} />}
           </div>
           <div>
-            <h3 className="text-lg font-bold text-white">Ghost Pings</h3>
+            <h3 className="text-lg font-bold text-white">Pagen Pings</h3>
             <p className="text-xs text-[#9aa0a6]">Get real-time order alerts</p>
           </div>
         </div>
@@ -135,7 +135,7 @@ export default function PushNotificationManager() {
           <p className="text-sm text-[#9aa0a6] leading-relaxed">
             {subscription 
               ? "You're all set! We'll ping you as soon as a nearby order matches your route." 
-              : "Enable push notifications to receive 'Ghost Pings' when buyers request prints nearby."}
+              : "Enable push notifications to receive 'Pagen Pings' when buyers request prints nearby."}
           </p>
 
           <AnimatePresence mode="wait">

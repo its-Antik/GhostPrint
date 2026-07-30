@@ -2,12 +2,12 @@
 create table profiles (
   id uuid references auth.users on delete cascade primary key,
   email text unique not null,
-  alias text,                -- Ghost Alias for Runners
+  alias text,                -- Pagen Alias for Runners
   department text,           -- Student's department
   phone text,                -- WhatsApp number for updates
   upi_qr_url text,           -- URL to the runner's UPI QR code in storage
   is_runner boolean default false,
-  balance decimal(10, 2) default 0.00, -- Digital Ghost Wallet balance (Debt is negative)
+  balance decimal(10, 2) default 0.00, -- Digital Pagen Wallet balance (Debt is negative)
   trust_rating decimal(3, 2) default 5.00,
   created_at timestamp with time zone default now(),
   updated_at timestamp with time zone default now()

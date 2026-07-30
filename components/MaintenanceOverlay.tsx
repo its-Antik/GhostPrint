@@ -79,14 +79,14 @@ export default function MaintenanceOverlay() {
             <div className="w-3 h-3 rounded-full bg-red-500/80" />
             <div className="w-3 h-3 rounded-full bg-yellow-500/80" />
             <div className="w-3 h-3 rounded-full bg-emerald-500/80" />
-            <span className="ml-3 text-emerald-500/50 text-xs font-mono">ghostprint@grid — system_status</span>
+            <span className="ml-3 text-emerald-500/50 text-xs font-mono">pagen@grid — system_status</span>
           </div>
 
           {/* Terminal Content */}
           <div className="p-8 font-mono text-sm space-y-4">
             {/* System Header */}
             <div className="text-emerald-500/40 text-xs">
-              <p>GhostPrint Grid Controller v2.0</p>
+              <p>Pagen Grid Controller v2.0</p>
               <p>━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</p>
             </div>
 
@@ -137,16 +137,16 @@ export default function MaintenanceOverlay() {
               transition={{ delay: 1.2 }}
               className="mt-6 p-4 rounded-lg bg-emerald-500/5 border border-emerald-500/10 text-emerald-500/50 text-xs leading-relaxed"
             >
-              <p>The GhostPrint Grid is temporarily offline for maintenance.</p>
+              <p>The Pagen Grid is temporarily offline for maintenance.</p>
               <p className="mt-1">This page will automatically refresh when the system comes back online.</p>
               <p className="mt-1 text-emerald-500/30">No orders or data will be lost during this period.</p>
             </motion.div>
           </div>
         </div>
 
-        {/* Ghost Logo watermark */}
+        {/* Pagen Logo watermark */}
         <div className="text-center mt-6">
-          <span className="text-emerald-500/10 text-6xl select-none">👻</span>
+          <span className="text-emerald-500/10 text-6xl select-none">📄</span>
         </div>
       </div>
     </motion.div>

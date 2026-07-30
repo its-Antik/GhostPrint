@@ -1,5 +1,5 @@
 -- ============================================
--- Ghost Operation 1: "Ghost Maintenance" 
+-- Pagen Operation 1: "Pagen Maintenance" 
 -- Auto-cleanup of completed/expired orders
 -- Run this in your Supabase SQL Editor
 -- ============================================
@@ -55,7 +55,7 @@ begin
   where order_id not in (select id from orders);
 
   -- Log the cleanup (optional — check in Supabase logs)
-  raise notice 'Ghost Maintenance: Cleaned up % old orders', deleted_count;
+  raise notice 'Pagen Maintenance: Cleaned up % old orders', deleted_count;
 end;
 $$;
 
@@ -65,7 +65,7 @@ $$;
 
 -- Then run this:
 select cron.schedule(
-  'ghost-maintenance',          -- job name
+  'pagen-maintenance',          -- job name
   '0 */6 * * *',               -- every 6 hours
   'select cleanup_old_orders()' -- the function to call
 );
@@ -77,4 +77,4 @@ select cron.schedule(
 -- select cleanup_old_orders();
 
 -- To unschedule:
--- select cron.unschedule('ghost-maintenance');
+-- select cron.unschedule('pagen-maintenance');

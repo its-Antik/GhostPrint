@@ -48,6 +48,17 @@ export default function RateCard() {
 
   const handleApply = async () => {
     if (!session?.user?.email) return;
+    // Enforce price limits
+    if (bwRate > 5) {
+      alert('Black & White rate cannot exceed ₹5 per page.');
+      setBwRate(5);
+      return;
+    }
+    if (colorRate > 10) {
+      alert('Color rate cannot exceed ₹10 per page.');
+      setColorRate(10);
+      return;
+    }
     setIsSaving(true);
     try {
       const res = await fetch("/api/profile", {
@@ -78,10 +89,12 @@ export default function RateCard() {
         <input 
           type="number" 
           min="2"
+          max="5"
           value={bwRate}
-          onChange={(e) => setBwRate(Math.max(2, Number(e.target.value)))}
+          onChange={(e) => setBwRate(Math.min(5, Math.max(2, Number(e.target.value))))}
           className="w-full bg-[#202124] border border-[#5f6368] rounded px-4 py-3 text-white focus:border-[#8ab4f8] outline-none transition-colors mb-2"
         />
+        <p className="text-[10px] text-[#5f6368] mb-1">Allowed range: ₹2 – ₹5 per page</p>
         <div className="flex justify-between items-center text-sm mt-2">
           <p className="text-[#8ab4f8] drop-shadow-[0_0_8px_rgba(138,180,248,0.5)] font-medium">
             Your Profit: ₹<AnimatedNumber value={bwSplit.profit} /> / page
@@ -100,10 +113,12 @@ export default function RateCard() {
         <input 
           type="number" 
           min="5"
+          max="10"
           value={colorRate}
-          onChange={(e) => setColorRate(Math.max(5, Number(e.target.value)))}
+          onChange={(e) => setColorRate(Math.min(10, Math.max(5, Number(e.target.value))))}
           className="w-full bg-[#202124] border border-[#5f6368] rounded px-4 py-3 text-white focus:border-[#8ab4f8] outline-none transition-colors mb-2"
         />
+        <p className="text-[10px] text-[#5f6368] mb-1">Allowed range: ₹5 – ₹10 per page</p>
         <div className="flex justify-between items-center text-sm mt-2">
           <p className="text-[#8ab4f8] drop-shadow-[0_0_8px_rgba(138,180,248,0.5)] font-medium">
             Your Profit: ₹<AnimatedNumber value={colorSplit.profit} /> / page

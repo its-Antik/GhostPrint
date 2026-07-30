@@ -11,13 +11,13 @@ const supabaseAdmin = createClient(
 
 // Configure Web Push with VAPID keys
 webPush.setVapidDetails(
-  `mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@ghostprint.com'}`,
+  `mailto:${process.env.NEXT_PUBLIC_ADMIN_EMAIL || 'admin@pagen.co'}`,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
   process.env.VAPID_PRIVATE_KEY || ""
 );
 
 // Helper: Insert a notification into the notifications table
-// This triggers Supabase Realtime → useNotifications hook → GhostPing toast
+// This triggers Supabase Realtime → useNotifications hook → PagenPing toast
 // Auto-prunes old notifications beyond 10 per user
 const MAX_NOTIFICATIONS_PER_USER = 10;
 
@@ -136,10 +136,10 @@ export async function POST(req: NextRequest) {
 
       if (activeRunners && activeRunners.length > 0) {
         const pushPayload = JSON.stringify({
-          title: "New Ghost Gig! 👻",
+          title: "New Pagen Gig! 📄",
           body: `${total_pages} Pages to print. Claim it fast!`,
-          icon: "/Logo.jpg",
-          badge: "/Logo.jpg"
+          icon: "/Logo.jpg?v=2",
+          badge: "/Logo.jpg?v=2"
         });
 
         const allPromises = activeRunners.flatMap((runner) => {
@@ -154,13 +154,13 @@ export async function POST(req: NextRequest) {
             );
           }
 
-          // 2. In-app notification (always — this powers the bell icon + GhostPing toast)
+          // 2. In-app notification (always — this powers the bell icon + PagenPing toast)
           // Skip notifying the buyer themselves if they happen to be an active runner
           if (runner.username !== session.user!.email) {
             promises.push(
               insertNotification(
                 runner.username,
-                "New Ghost Gig! 👻",
+                "New Pagen Gig! 📄",
                 `${total_pages} pages to print at ${delivery_location}. Claim it now!`,
                 "order",
                 { order_id: newOrder.id }
@@ -416,7 +416,7 @@ export async function PATCH(req: NextRequest) {
           await insertNotification(
             buyerEmail,
             "📦 Job Delivered!",
-            `Your print order has been delivered. Thanks for using GhostPrint!`,
+            `Your print order has been delivered. Thanks for using Pagen!`,
             "order",
             { order_id: data.id, action: "delivered" }
           );
@@ -559,7 +559,7 @@ export async function PATCH(req: NextRequest) {
       console.error("Notification insert failed (non-blocking):", notifErr);
     }
 
-    // GHOST CREDIT BALANCE LOGIC:
+    // PAGEN CREDIT BALANCE LOGIC:
     // If the order was just delivered, charge the runner the platform commission (Debt)
     if (updates.status === 'delivered' && data.runner_id) {
       const BASE_BW = 2;

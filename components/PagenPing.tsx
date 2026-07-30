@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Bell, X } from "lucide-react";
 
-interface GhostPingToast {
+interface PagenPingToast {
   id: string;
   title: string;
   message: string;
@@ -13,10 +13,10 @@ interface GhostPingToast {
 
 const TOAST_DURATION = 5000; // 5 seconds
 
-// Global toast queue — components call showGhostPing() from anywhere
-let toastListener: ((toast: GhostPingToast) => void) | null = null;
+// Global toast queue — components call showPagenPing() from anywhere
+let toastListener: ((toast: PagenPingToast) => void) | null = null;
 
-export function showGhostPing(title: string, message: string, type: GhostPingToast["type"] = "order") {
+export function showPagenPing(title: string, message: string, type: PagenPingToast["type"] = "order") {
   if (toastListener) {
     toastListener({
       id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -27,8 +27,8 @@ export function showGhostPing(title: string, message: string, type: GhostPingToa
   }
 }
 
-export default function GhostPingProvider() {
-  const [toasts, setToasts] = useState<GhostPingToast[]>([]);
+export default function PagenPingProvider() {
+  const [toasts, setToasts] = useState<PagenPingToast[]>([]);
 
   useEffect(() => {
     toastListener = (toast) => {
@@ -47,14 +47,14 @@ export default function GhostPingProvider() {
     <div className="fixed top-0 left-0 right-0 z-[9999] flex flex-col items-center pointer-events-none px-4 pt-3 gap-2">
       <AnimatePresence mode="popLayout">
         {toasts.map((toast) => (
-          <GhostPingBar key={toast.id} toast={toast} onDismiss={dismiss} />
+          <PagenPingBar key={toast.id} toast={toast} onDismiss={dismiss} />
         ))}
       </AnimatePresence>
     </div>
   );
 }
 
-function GhostPingBar({ toast, onDismiss }: { toast: GhostPingToast; onDismiss: (id: string) => void }) {
+function PagenPingBar({ toast, onDismiss }: { toast: PagenPingToast; onDismiss: (id: string) => void }) {
   useEffect(() => {
     const timer = setTimeout(() => onDismiss(toast.id), TOAST_DURATION);
     return () => clearTimeout(timer);

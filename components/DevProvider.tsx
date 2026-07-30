@@ -24,14 +24,14 @@ export default function DevProvider({ children }: { children: React.ReactNode })
   useEffect(() => {
     setMounted(true);
     // Optionally load dev mode state from localStorage
-    const saved = localStorage.getItem("ghostprint_dev_mode");
+    const saved = localStorage.getItem("pagen_dev_mode");
     if (saved === "true") setIsDevMode(true);
   }, []);
 
   const toggleDevMode = () => {
     const nextState = !isDevMode;
     setIsDevMode(nextState);
-    localStorage.setItem("ghostprint_dev_mode", String(nextState));
+    localStorage.setItem("pagen_dev_mode", String(nextState));
   };
 
   return (

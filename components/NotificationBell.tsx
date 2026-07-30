@@ -111,7 +111,7 @@ export default function NotificationBell({
           >
             {/* Header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c4043]">
-              <h3 className="text-sm font-semibold text-white">Ghost Pings</h3>
+              <h3 className="text-sm font-semibold text-white">Pagen Pings</h3>
               <div className="flex items-center gap-2">
                 {unreadCount > 0 && (
                   <button
@@ -136,7 +136,7 @@ export default function NotificationBell({
                 <div className="flex flex-col items-center justify-center py-12 text-[#5f6368]">
                   <Bell size={32} className="mb-3 opacity-50" />
                   <p className="text-sm">No notifications yet</p>
-                  <p className="text-xs mt-1">You'll see Ghost Pings here</p>
+                  <p className="text-xs mt-1">You'll see Pagen Pings here</p>
                 </div>
               ) : (
                 notifications.map((notif) => (

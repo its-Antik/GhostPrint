@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
     if (body.whatsapp_no !== undefined) payload.whatsapp_no = body.whatsapp_no;
     if (body.avatar_url !== undefined) payload.avatar_url = body.avatar_url;
     if (body.is_runner_active !== undefined) payload.is_runner_active = body.is_runner_active;
-    if (body.bw_rate !== undefined) payload.bw_rate = body.bw_rate;
-    if (body.color_rate !== undefined) payload.color_rate = body.color_rate;
+    if (body.bw_rate !== undefined) payload.bw_rate = Math.min(5, Math.max(2, Number(body.bw_rate)));
+    if (body.color_rate !== undefined) payload.color_rate = Math.min(10, Math.max(5, Number(body.color_rate)));
     if (body.balance !== undefined) payload.balance = body.balance;
     if (body.dues !== undefined) payload.dues = body.dues;
     if (body.bonus !== undefined) payload.bonus = body.bonus;

@@ -47,7 +47,7 @@ export default function Onboarding({ onComplete }: { onComplete: () => void }) {
                   <GraduationCap size={32} className="text-indigo-400" />
                 </div>
                 <h2 className="text-2xl font-bold text-white mb-2">Select Your Department</h2>
-                <p className="text-gray-400 text-sm mb-6">Help us customize your GhostPrint experience.</p>
+                <p className="text-gray-400 text-sm mb-6">Help us customize your Pagen experience.</p>
                 
                 <div className="grid grid-cols-2 gap-3 mb-6">
                   {DEPARTMENTS.map((dept) => (

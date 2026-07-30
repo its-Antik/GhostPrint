@@ -6,7 +6,7 @@ import AuthProvider from "@/components/AuthProvider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "GhostPrint - Campus Print Network",
+  title: "Pagen - Campus Print Network",
   description: "Skip the Xerox queues. Get your prints delivered to the college gate.",
 };
 

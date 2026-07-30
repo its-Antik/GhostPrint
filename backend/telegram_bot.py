@@ -49,13 +49,13 @@ async def broadcast_order(order: OrderData):
             f"⚡ <i>Fastest runner claims it first!</i>"
         )
         
-        # We need an inline keyboard to deep-link to GhostPrint
+        # We need an inline keyboard to deep-link to Pagen
         reply_markup = {
             "inline_keyboard": [
                 [
                     {
-                        "text": "Claim on GhostPrint 🚀",
-                        "url": f"https://ghostprint.app/runner/claim/{order.order_id}"
+                        "text": "Claim on Pagen 🚀",
+                        "url": f"https://pagen.app/runner/claim/{order.order_id}"
                     }
                 ]
             ]

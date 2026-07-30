@@ -58,7 +58,7 @@ export default function DebtDashboard({ balance = -45 }: { balance?: number }) {
             <div className={`p-2 rounded-xl border ${isDues ? "bg-[#fde293]/10 border-[#fde293]/20 text-[#fde293]" : "bg-[#81c995]/10 border-[#81c995]/20 text-[#81c995]"}`}>
               <History size={18} />
             </div>
-            <span className="text-sm font-medium text-[#9aa0a6] uppercase tracking-widest">Ghost Wallet Status</span>
+            <span className="text-sm font-medium text-[#9aa0a6] uppercase tracking-widest">Pagen Wallet Status</span>
           </div>
 
           <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
@@ -177,7 +177,7 @@ export default function DebtDashboard({ balance = -45 }: { balance?: number }) {
               </div>
 
               <h2 className="text-2xl font-bold text-white mb-2">Clear Dues</h2>
-              <p className="text-sm text-[#9aa0a6] mb-8">Scan the GhostPrint Admin QR to clear your outstanding dues of ₹{absBalance}.</p>
+              <p className="text-sm text-[#9aa0a6] mb-8">Scan the Pagen Admin QR to clear your outstanding dues of ₹{absBalance}.</p>
 
               {/* Admin QR Code (Mock) */}
               <div className="bg-white p-4 rounded-2xl mb-8 inline-block shadow-[0_0_30px_rgba(255,255,255,0.1)]">

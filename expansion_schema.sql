@@ -1,5 +1,5 @@
 -- ============================================
--- GhostPrint Campus Expansion Schema
+-- Pagen Campus Expansion Schema
 -- Run this in your Supabase SQL Editor
 -- ============================================
 

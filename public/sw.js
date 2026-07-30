@@ -3,10 +3,10 @@ self.addEventListener('push', function(event) {
     const data = event.data.json();
     const options = {
       body: data.body,
-      icon: '/Logo.jpg',
-      badge: '/Logo.jpg',
+      icon: '/Logo.jpg?v=2',
+      badge: '/Logo.jpg?v=2',
       vibrate: [200, 100, 200, 100, 200], // Aggressive vibration for campus
-      tag: data.tag || 'ghost-ping', // Prevents duplicate notifications
+      tag: data.tag || 'pagen-ping', // Prevents duplicate notifications
       renotify: true,
       data: {
         dateOfArrival: Date.now(),
@@ -26,7 +26,7 @@ self.addEventListener('push', function(event) {
     };
 
     event.waitUntil(
-      self.registration.showNotification(data.title || 'GhostPrint', options)
+      self.registration.showNotification(data.title || 'Pagen', options)
     );
   }
 });
@@ -58,7 +58,7 @@ self.addEventListener('notificationclick', function(event) {
 
 // Background sync — ensures notifications are delivered even on flaky campus WiFi
 self.addEventListener('sync', function(event) {
-  if (event.tag === 'ghost-sync') {
+  if (event.tag === 'pagen-sync') {
     // Future: retry failed notification deliveries
   }
 });

@@ -32,7 +32,7 @@ const BUYER_QUICK_CARDS = [
   "🔔 Buzz me when you arrive",
 ];
 
-export default function GhostChat({
+export default function PagenChat({
   orderId,
   currentUserEmail,
   isRunner,
@@ -182,7 +182,7 @@ export default function GhostChat({
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-[#81c995] animate-pulse" />
                 <h3 className="text-white font-medium text-sm">
-                  Ghost Chat
+                  Pagen Chat
                 </h3>
                 <span className="text-[#9aa0a6] text-xs">
                   • {isRunner ? "Buyer" : "Runner"}

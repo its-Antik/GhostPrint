@@ -9,7 +9,6 @@ import CampusExpansion from "@/components/CampusExpansion";
 import MaintenanceOverlay from "@/components/MaintenanceOverlay";
 import RazorpayCheckout from "@/components/RazorpayCheckout";
 import Link from "next/link";
-import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 
 // --- 3D BACKGROUND COMPONENT ---
@@ -232,10 +231,10 @@ export default function LandingPage() {
                     <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
                       <Users size={20} className="text-indigo-400" />
                     </div>
-                    <h2 className="text-2xl font-bold">About GhostPrint</h2>
+                    <h2 className="text-2xl font-bold">About Pagen</h2>
                   </div>
                   <p className="text-gray-300 leading-relaxed mb-6">
-                    GhostPrint was built to solve a single, universal problem: the 8:50 AM panic before the first period. We are an independent, student-operated network designed specifically for the Heritage campus.
+                    Pagen was built to solve a single, universal problem: the 8:50 AM panic before the first period. We are an independent, student-operated network designed specifically for the Heritage campus.
                   </p>
                   <p className="text-gray-300 leading-relaxed">
                     We believe in decentralizing the campus infrastructure. There are no middlemen and no corporate overhead&mdash;just a peer-to-peer grid that lets students save time and lets Runners make money on their daily walk to class.
@@ -255,7 +254,7 @@ export default function LandingPage() {
 
                   {/* Zone 1: Runner Pitch */}
                   <p className="text-gray-300 leading-relaxed mb-5">
-                    Your daily walk to class can be monetized. GhostPrint is always expanding its grid of active Runners.
+                    Your daily walk to class can be monetized. Pagen is always expanding its grid of active Runners.
                   </p>
                   <ul className="space-y-3 mb-5">
                     <li className="flex items-start gap-3">
@@ -289,7 +288,7 @@ export default function LandingPage() {
                       <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest">Core Operations (Unsupervised Labs)</h3>
                     </div>
                     <p className="text-gray-400 text-sm leading-relaxed mb-3">
-                      GhostPrint is operated by a small, faceless team. We are currently looking for <strong className="text-white">one</strong> highly capable student to join the core administrative team to monitor the grid and scale the architecture.
+                      Pagen is operated by a small, faceless team. We are currently looking for <strong className="text-white">one</strong> highly capable student to join the core administrative team to monitor the grid and scale the architecture.
                     </p>
                     <p className="text-gray-500 text-sm leading-relaxed mb-5">
                       You need to be analytical, capable of keeping secrets, and comfortable with modern web infrastructure. We don&apos;t do traditional interviews.
@@ -338,7 +337,7 @@ export default function LandingPage() {
                       <Shield size={16} className="text-amber-400" /> Terms of Service
                     </h3>
                     <p className="text-gray-300 leading-relaxed">
-                      GhostPrint acts exclusively as a matching platform connecting students who need printing services (Buyers) with students willing to provide them (Runners). We are not a printing company. All financial transactions for prints occur directly between the Buyer and the Runner. GhostPrint is not legally liable for the quality of the prints, missed deadlines, or offline disputes, though we actively monitor the network to suspend unreliable users. By using the platform, you agree to these peer-to-peer terms.
+                      Pagen acts exclusively as a matching platform connecting students who need printing services (Buyers) with students willing to provide them (Runners). We are not a printing company. All financial transactions for prints occur directly between the Buyer and the Runner. Pagen is not legally liable for the quality of the prints, missed deadlines, or offline disputes, though we actively monitor the network to suspend unreliable users. By using the platform, you agree to these peer-to-peer terms.
                     </p>
                   </div>
                   <div>
@@ -346,7 +345,7 @@ export default function LandingPage() {
                       <Shield size={16} className="text-amber-400" /> Privacy Policy
                     </h3>
                     <p className="text-gray-300 leading-relaxed">
-                      We take your data seriously. GhostPrint uses Google authentication restricted to institutional emails to ensure a secure, closed network. Any documents uploaded to the platform are processed through secure, temporary cloud storage. We employ automated cleanup scripts that sever the links to your files once an order is marked as delivered or canceled. We do not view, analyze, or sell your documents to third parties.
+                      We take your data seriously. Pagen uses Google authentication restricted to institutional emails to ensure a secure, closed network. Any documents uploaded to the platform are processed through secure, temporary cloud storage. We employ automated cleanup scripts that sever the links to your files once an order is marked as delivered or canceled. We do not view, analyze, or sell your documents to third parties.
                     </p>
                   </div>
                 </div>
@@ -372,9 +371,9 @@ export default function LandingPage() {
       <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto border-b border-white/10 bg-black/60 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <div className="w-20 h-20 rounded flex items-center justify-center overflow-hidden">
-            <Image src="/Logo.jpg" alt="GhostPrint" width={80} height={80} className="object-cover rounded-md" priority />
+            <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover rounded-md" />
           </div>
-          <span className="text-xl font-bold tracking-tight">GhostPrint</span>
+          <span className="text-xl font-bold tracking-tight">Pagen</span>
         </div>
         <div className="flex items-center gap-4 sm:gap-6 text-sm font-medium">
           <button onClick={() => setActiveModal("about")} className="hidden md:block text-gray-300 hover:text-white transition-colors">About Us</button>
@@ -520,7 +519,7 @@ export default function LandingPage() {
       <section id="features" className="relative z-10 py-20 px-6 max-w-5xl mx-auto">
         <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5 }}>
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-4">
-            Why <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">GhostPrint</span>?
+            Why <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Pagen</span>?
           </h2>
           <p className="text-gray-400 text-center mb-12 max-w-xl mx-auto">Everything you need. Nothing you don&apos;t.</p>
         </motion.div>
@@ -528,7 +527,7 @@ export default function LandingPage() {
           {[
             { icon: <Users size={22} className="text-indigo-400" />, title: "Peer-to-Peer Delivery", desc: "Skip the Xerox shop line. Get lab manuals and assignments delivered directly to your location on campus.", color: "indigo" },
             { icon: <Wallet size={22} className="text-emerald-400" />, title: "Transparent Pricing", desc: "Runners set their own rates. You see the exact price before you broadcast the job.", color: "emerald" },
-            { icon: <Shield size={22} className="text-cyan-400" />, title: "Ghost Privacy", desc: "Your documents are your business. Files are securely routed and automatically unlinked the moment your delivery is confirmed.", color: "cyan" },
+            { icon: <Shield size={22} className="text-cyan-400" />, title: "Pagen Privacy", desc: "Your documents are your business. Files are securely routed and automatically unlinked the moment your delivery is confirmed.", color: "cyan" },
             { icon: <Zap size={22} className="text-amber-400" />, title: "Cashless Handoff", desc: "Pay your Runner directly via UPI when they hand you the papers. No wallet top-ups required for buyers.", color: "amber" },
           ].map((f, i) => (
             <motion.div
@@ -560,7 +559,7 @@ export default function LandingPage() {
         </motion.div>
         <div className="space-y-4">
           {[
-            { q: "How do I pay for my prints?", a: "You pay the Runner directly via their personal UPI QR code at the time of delivery. GhostPrint handles the matching; you handle the handshake." },
+            { q: "How do I pay for my prints?", a: "You pay the Runner directly via their personal UPI QR code at the time of delivery. Pagen handles the matching; you handle the handshake." },
             { q: "What happens to my PDF after printing?", a: "We use an ephemeral storage system. Once you click \"I Received My Printout,\" the file link is permanently severed from our database." },
             { q: "What if the Runner doesn't show up?", a: "If an order is delayed, you can cancel it from your dashboard. Runners who repeatedly fail to deliver are removed from the network." },
           ].map((faq, i) => (
@@ -588,9 +587,9 @@ export default function LandingPage() {
             <div className="md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded flex items-center justify-center overflow-hidden">
-                  <Image src="/Logo.jpg" alt="GhostPrint" width={32} height={32} className="object-cover rounded" />
+                  <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover rounded" />
                 </div>
-                <span className="text-xl font-bold tracking-tight text-white">GhostPrint</span>
+                <span className="text-xl font-bold tracking-tight text-white">Pagen</span>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
                 Your campus prints, anytime, anywhere.
@@ -625,7 +624,7 @@ export default function LandingPage() {
 
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-gray-400 text-sm">
-              © {new Date().getFullYear()} GhostPrint. All rights reserved.
+              © {new Date().getFullYear()} Pagen. All rights reserved.
             </p>
             <div className="flex items-center gap-4 text-gray-400">
               <a href="#" className="hover:text-white transition-colors">

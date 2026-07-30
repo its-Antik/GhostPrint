@@ -1,5 +1,5 @@
 -- ============================================
--- GhostPrint Expansion Data Normalization Fix
+-- Pagen Expansion Data Normalization Fix
 -- Run this in your Supabase SQL Editor
 -- ============================================
 

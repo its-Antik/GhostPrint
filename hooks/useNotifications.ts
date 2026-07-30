@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase";
-import { showGhostPing } from "@/components/GhostPing";
+import { showPagenPing } from "@/components/PagenPing";
 
 interface Notification {
   id: string;
@@ -23,7 +23,7 @@ interface Notification {
  * 2. Subscribes to Supabase Realtime INSERT events on `notifications` table
  * 3. When a new notification arrives:
  *    - Increments unread count
- *    - Fires a GhostPing toast
+ *    - Fires a PagenPing toast
  *    - Plays a subtle notification sound (browser native)
  * 4. Exposes markAllRead() to clear the badge
  */
@@ -91,7 +91,7 @@ export function useNotifications(userEmail: string | undefined) {
     // breaks silently on filter values with @ and . (emails).
     // We check user_email client-side instead.
     const channel = supabase
-      .channel(`ghost_pings_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`)
+      .channel(`pagen_pings_${userEmail.replace(/[^a-zA-Z0-9]/g, '_')}`)
       .on(
         "postgres_changes",
         {
@@ -109,8 +109,8 @@ export function useNotifications(userEmail: string | undefined) {
           setUnreadCount((prev) => prev + 1);
           setNotifications((prev) => [newNotif, ...prev].slice(0, 10)); // Keep last 10
 
-          // Fire the GhostPing toast
-          showGhostPing(
+          // Fire the PagenPing toast
+          showPagenPing(
             newNotif.title,
             newNotif.message,
             newNotif.type as any

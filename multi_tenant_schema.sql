@@ -1,5 +1,5 @@
 -- ============================================
--- GhostPrint Multi-Tenant Schema Update
+-- Pagen Multi-Tenant Schema Update
 -- Run this in your Supabase SQL Editor
 -- ============================================
 

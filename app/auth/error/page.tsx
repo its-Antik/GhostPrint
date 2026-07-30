@@ -23,12 +23,12 @@ export default function AuthError() {
         </div>
 
         <h1 className="text-3xl font-bold text-white mb-3 tracking-tight">
-          GhostPrint isn't at your campus yet.
+          Pagen isn't at your campus yet.
         </h1>
         
         <p className="text-gray-400 leading-relaxed mb-4 text-sm">
           We currently only operate on authorized campuses. But you can help change that —{" "}
-          <span className="text-indigo-400 font-medium">request an expansion</span> and we'll bring GhostPrint to your college once enough students sign up.
+          <span className="text-indigo-400 font-medium">request an expansion</span> and we'll bring Pagen to your college once enough students sign up.
         </p>
 
         {/* Reward Hook */}

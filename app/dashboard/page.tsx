@@ -5,21 +5,22 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, ShoppingBag, Truck, BarChart3, Settings, CheckCircle2, ShieldCheck, Info, Search, MapPin, Zap, Star, Eye, X, Check } from "lucide-react";
+import { User, ShoppingBag, Truck, BarChart3, Settings, CheckCircle2, ShieldCheck, Info, Search, MapPin, Zap, Star, Eye, X, Check, AlertTriangle, Flag, Download, FileText, ChevronDown, ChevronUp } from "lucide-react";
 import Onboarding from "@/components/Onboarding";
 import RunnerSetup from "@/components/RunnerSetup";
 import RateCard from "@/components/RateCard";
 import UploadManager from "@/components/UploadManager";
 import DebtDashboard from "@/components/DebtDashboard";
 import PushNotificationManager from "@/components/PushNotificationManager";
-import GhostChat from "@/components/GhostChat";
-import GhostPingProvider from "@/components/GhostPing";
+import PagenChat from "@/components/PagenChat";
+import PagenPingProvider from "@/components/PagenPing";
 import NotificationBell from "@/components/NotificationBell";
 import { supabase } from "@/lib/supabase";
 import MaintenanceOverlay from "@/components/MaintenanceOverlay";
 import { useSmartRealtime } from "@/hooks/useSmartRealtime";
 import { useNotifications } from "@/hooks/useNotifications";
-import { showGhostPing } from "@/components/GhostPing";
+import { showPagenPing } from "@/components/PagenPing";
+import { generateShortId, downloadInvoice, type InvoiceData } from "@/lib/invoice";
 
 export default function Dashboard() {
   const { data: session, status } = useSession();
@@ -49,7 +50,42 @@ export default function Dashboard() {
   const [jobsCompleted, setJobsCompleted] = useState(0);
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [pastOrders, setPastOrders] = useState<any[]>([]);
+  const [strikeCount, setStrikeCount] = useState(0);
+  const [accountDisabled, setAccountDisabled] = useState(false);
+  const [userAvgRating, setUserAvgRating] = useState(0);
+  const [userTotalRatings, setUserTotalRatings] = useState(0);
+  const [netDuesForRunner, setNetDuesForRunner] = useState(0);
   const router = useRouter();
+
+  // Fetch profile data on mount (strikes, rating, dues)
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    const fetchProfileData = async () => {
+      try {
+        const [profileRes, strikeRes, ratingRes] = await Promise.all([
+          fetch('/api/profile'),
+          fetch('/api/strikes'),
+          fetch(`/api/ratings?user_email=${encodeURIComponent(session.user!.email!)}`),
+        ]);
+        const profileJson = await profileRes.json();
+        const strikeJson = await strikeRes.json();
+        const ratingJson = await ratingRes.json();
+
+        if (profileJson.profile) {
+          const dues = Number(profileJson.profile.dues) || 0;
+          const bonus = Number(profileJson.profile.bonus) || 25;
+          setNetDuesForRunner(Math.max(0, dues - bonus));
+        }
+        setStrikeCount(strikeJson.strike_count || 0);
+        setAccountDisabled(strikeJson.account_disabled || false);
+        setUserAvgRating(ratingJson.avg_rating || 0);
+        setUserTotalRatings(ratingJson.total_ratings || 0);
+      } catch (err) {
+        console.error('Failed to fetch profile data:', err);
+      }
+    };
+    fetchProfileData();
+  }, [session?.user?.email]);
 
   // Notification system
   const {
@@ -69,7 +105,7 @@ export default function Dashboard() {
       const action = latestNotif?.metadata?.action || '';
 
       // New gig available → light up Runner tab + Jobs sub-tab
-      if (latestNotif?.title?.includes('Ghost Gig')) {
+      if (latestNotif?.title?.includes('Pagen Gig')) {
         if (mode !== 'runner') {
           setTabDots(prev => ({ ...prev, runner: true, jobs: true }));
         } else if (runnerTab !== 'jobs') {
@@ -315,6 +351,16 @@ export default function Dashboard() {
       return;
     }
 
+    if (accountDisabled) {
+      alert("Your account is disabled due to strikes. Please pay the strike fine in your Profile to reactivate.");
+      return;
+    }
+
+    if (netDuesForRunner >= 50) {
+      alert(`You have ₹${netDuesForRunner} in net dues. Please clear your dues in the Wallet section before accepting jobs.`);
+      return;
+    }
+
     try {
       const res = await fetch("/api/orders", {
         method: "PATCH",
@@ -383,6 +429,28 @@ export default function Dashboard() {
 
   const cancelOrder = async () => {
     if (currentOrder?.id) {
+      // Re-fetch current order status to prevent cancelling an already-accepted order
+      try {
+        const checkRes = await fetch(`/api/orders?status=searching,accepted,printing,ready,delivered,cancelled&buyer_id=${encodeURIComponent(session?.user?.email || '')}`);
+        const checkJson = await checkRes.json();
+        const freshOrder = checkJson.orders?.find((o: any) => o.id === currentOrder.id);
+        if (freshOrder && freshOrder.status !== 'searching') {
+          // Order was already accepted — update UI immediately instead of cancelling
+          setCurrentOrder(freshOrder);
+          if (freshOrder.total_price) setEstimatedPrice(freshOrder.total_price);
+          setOrderState('idle');
+          setBuyerTab('dashboard');
+          setTabDots(prev => ({ ...prev, buyerOrders: true }));
+          showPagenPing(
+            "🎉 Runner Found!",
+            "A runner has already accepted your order. Check the Orders tab.",
+            "info"
+          );
+          return;
+        }
+      } catch (e) {
+        // If check fails, proceed with cancel attempt
+      }
       await updateOrderStatus(currentOrder.id, 'cancelled');
     }
     setOrderState('cancelled');
@@ -396,7 +464,7 @@ export default function Dashboard() {
     if (orderState !== 'finding') return;
 
     // Show recommendation toast when search starts
-    showGhostPing(
+    showPagenPing(
       "🔒 Safety Mode Active",
       "It's recommended to stay on this tab while we search for a runner.",
       "info"
@@ -490,7 +558,7 @@ export default function Dashboard() {
         } catch (uploadErr: any) {
           console.error("Upload error for", f.name, uploadErr);
           uploadFailed = true;
-          showGhostPing(
+          showPagenPing(
             "⚠️ Upload Failed",
             `"${f.name}" couldn't be uploaded: ${uploadErr.message}. The order will proceed without this file.`,
             "system"
@@ -508,7 +576,7 @@ export default function Dashboard() {
 
       // If ALL files failed to upload, abort the order
       if (fileMetadata.every(f => !f.url)) {
-        showGhostPing(
+        showPagenPing(
           "❌ Upload Failed",
           "None of the files could be uploaded. Please check your internet connection and try again.",
           "system"
@@ -566,7 +634,7 @@ export default function Dashboard() {
               setOrderState('idle');
               setBuyerTab('dashboard');
               setTabDots(prev => ({ ...prev, buyerOrders: true }));
-              showGhostPing(
+              showPagenPing(
                 "🎉 Runner Found!",
                 "A runner has accepted your order. Check the Orders tab to track progress.",
                 "info"
@@ -585,6 +653,7 @@ export default function Dashboard() {
         .subscribe();
 
       // Polling fallback (RLS may block realtime events for non-Supabase-auth users)
+      // Polling at 2s for faster buyer-side sync to prevent stale cancel states
       const pollInterval = setInterval(async () => {
         try {
           const pollRes = await fetch(`/api/orders?status=searching,accepted,printing,ready,delivered,cancelled&buyer_id=${encodeURIComponent(session.user!.email!)}`);
@@ -599,7 +668,7 @@ export default function Dashboard() {
               setOrderState('idle');
               setBuyerTab('dashboard');
               setTabDots(prev => ({ ...prev, buyerOrders: true }));
-              showGhostPing(
+              showPagenPing(
                 "🎉 Runner Found!",
                 "A runner has accepted your order. Check the Orders tab to track progress.",
                 "info"
@@ -613,7 +682,7 @@ export default function Dashboard() {
             }
           }
         } catch (err) { /* silent */ }
-      }, 5000);
+      }, 2000);
 
       // Visibility-aware: disconnect when tab goes to background,
       // reconnect + immediate poll when it returns
@@ -648,7 +717,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-[#202124] text-[#e8eaed] font-sans">
-      <GhostPingProvider />
+      <PagenPingProvider />
       <MaintenanceOverlay />
       {showOnboarding && <Onboarding onComplete={() => setShowOnboarding(false)} />}
       <PaymentHandshakeModal 
@@ -698,9 +767,9 @@ export default function Dashboard() {
           )}
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded flex items-center justify-center overflow-hidden">
-              <img src="/Logo.jpg" alt="GhostPrint" className="w-full h-full object-cover rounded-md" />
+              <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover rounded-md" />
             </div>
-            <span className="font-bold tracking-tight">GhostPrint</span>
+            <span className="font-bold tracking-tight">Pagen</span>
           </div>
         </div>
 
@@ -830,7 +899,7 @@ export default function Dashboard() {
                         }}
                       />
                       {trackingOrder.id && session?.user?.email && (
-                        <GhostChat
+                        <PagenChat
                           orderId={trackingOrder.id}
                           currentUserEmail={session.user.email}
                           isRunner={false}
@@ -870,7 +939,7 @@ export default function Dashboard() {
                           {trackingOrder.status === 'printing' ? 'Printing your documents...' : trackingOrder.status === 'ready' ? 'Ready for Pickup!' : 'Job Delivered!'}
                         </h3>
                         <p className="text-[#9aa0a6] mb-6">
-                          {trackingOrder.status === 'printing' ? 'Your runner is currently printing the files.' : trackingOrder.status === 'ready' ? 'Meet the runner and share your OTP to collect.' : 'Thank you for using GhostPrint!'}
+                          {trackingOrder.status === 'printing' ? 'Your runner is currently printing the files.' : trackingOrder.status === 'ready' ? 'Meet the runner and share your OTP to collect.' : 'Thank you for using Pagen!'}
                         </p>
                         <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
                           <div className="flex justify-between items-start mb-6">
@@ -882,6 +951,12 @@ export default function Dashboard() {
                               <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
                               <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
                             </div>
+                          </div>
+                          <div className="bg-[#fde293]/10 border border-[#fde293]/30 rounded-lg px-4 py-2.5 mb-6 flex items-start gap-2">
+                            <Info size={14} className="text-[#fde293] mt-0.5 shrink-0" />
+                            <p className="text-[#fde293]/90 text-xs leading-relaxed">
+                              <strong>Safety Tip:</strong> It is recommended to share the pickup OTP only after you have received your printouts and verified them.
+                            </p>
                           </div>
                           <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Delivery Location</p>
                           <p className="text-white mb-6 bg-[#3c4043] inline-block px-3 py-1 rounded text-sm">{trackingOrder.delivery_location || 'Campus'}</p>
@@ -903,8 +978,16 @@ export default function Dashboard() {
                           </div>
                         </div>
                       </motion.div>
+                      {trackingOrder.status === 'delivered' && session?.user?.email && (
+                        <RatingAndReportWidget
+                          orderId={trackingOrder.id}
+                          currentUserEmail={session.user.email}
+                          otherUserEmail={trackingOrder.runner_id}
+                          currentUserRole="buyer"
+                        />
+                      )}
                       {trackingOrder.id && session?.user?.email && trackingOrder.status !== 'delivered' && (
-                        <GhostChat
+                        <PagenChat
                           orderId={trackingOrder.id}
                           currentUserEmail={session.user.email}
                           isRunner={false}
@@ -957,7 +1040,7 @@ export default function Dashboard() {
                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
                        Cancel Request
                      </button>
-                     <h2 className="text-xl font-medium text-white">GhostPrint File Manager</h2>
+                     <h2 className="text-xl font-medium text-white">Pagen File Manager</h2>
                    </div>
                    
                    <UploadManager onContinue={(files, totalPages, totalCost, deliveryLocation) => {
@@ -1096,7 +1179,7 @@ export default function Dashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
                       <PushNotificationManager />
                       <div className="p-6 bg-[#292a2d] border border-[#3c4043] rounded-3xl flex flex-col justify-center">
-                        <h3 className="text-lg font-bold text-white mb-2">Ghost Status</h3>
+                        <h3 className="text-lg font-bold text-white mb-2">Pagen Status</h3>
                         <div className="flex items-center gap-2">
                           <span className="relative flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -1104,7 +1187,7 @@ export default function Dashboard() {
                           </span>
                           <p className="text-emerald-400 font-medium">Active & Visible</p>
                         </div>
-                        <p className="text-xs text-[#9aa0a6] mt-2">You are currently appearing in the Ghost Slot algorithm for nearby buyers.</p>
+                        <p className="text-xs text-[#9aa0a6] mt-2">You are currently appearing in the Pagen Slot algorithm for nearby buyers.</p>
                       </div>
                     </div>
                   </motion.div>
@@ -1175,7 +1258,7 @@ export default function Dashboard() {
                         <div>
                           <h3 className="text-lg font-bold text-white mb-2">Platform Dues</h3>
                           <p className="text-sm text-[#9aa0a6] leading-relaxed mb-3">
-                            GhostPrint charges a <strong className="text-white">10% commission</strong> on orders where your rate exceeds the base price. No fee if you charge base rate ({'\u20B9'}2 B&W / {'\u20B9'}5 Color).
+                            Pagen charges a <strong className="text-white">10% commission</strong> on orders where your rate exceeds the base price. No fee if you charge base rate ({'\u20B9'}2 B&W / {'\u20B9'}5 Color).
                           </p>
                           <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-3 mb-3 space-y-2">
                             <div className="flex justify-between text-sm">
@@ -1243,7 +1326,7 @@ export default function Dashboard() {
                             />
                             {/* Only show chat for the first active pickup to avoid overlapping floating windows */}
                             {idx === 0 && session?.user?.email && (
-                              <GhostChat
+                              <PagenChat
                                 orderId={order.id}
                                 currentUserEmail={session.user.email}
                                 isRunner={true}
@@ -1296,7 +1379,10 @@ export default function Dashboard() {
                                     <span className="border border-[#3c4043] bg-[#202124] text-[#9aa0a6] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">{order.page_count} Pages</span>
                                   </div>
                                   <h3 className="font-medium text-[#e8eaed] text-base">{order.file_metadata?.[0]?.name || "Print Request"} {order.file_metadata?.length > 1 && `(+${order.file_metadata.length - 1} more)`}</h3>
-                                  <p className="text-sm text-[#9aa0a6] mt-1">{order.delivery_location || "Anywhere on Campus"}</p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-sm text-[#9aa0a6]">{order.delivery_location || "Anywhere on Campus"}</p>
+                                    <InlineRatingBadge email={order.buyer_id} />
+                                  </div>
                                </div>
                                <div className="text-right">
                                   <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">You Earn</p>
@@ -1322,22 +1408,30 @@ export default function Dashboard() {
                                >
                                  <X size={16} /> Ignore
                                </button>
-                               {Math.max(0, runnerDues - runnerBonus) > 100 ? (
-                                  <button 
-                                    disabled
-                                    className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"
-                                    title="Clear dues to accept jobs"
-                                  >
-                                    🔒 Account Restricted
-                                  </button>
-                                ) : (
-                                  <button 
-                                    onClick={() => claimJob(order.id)} 
-                                    className="flex-[2] flex items-center justify-center gap-2 bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#202124] transition-colors rounded py-2 text-sm font-bold shadow-lg"
-                                  >
-                                    <Check size={16} /> Accept — Earn ₹{netProfit}
-                                  </button>
-                                )}
+                               {accountDisabled ? (
+                                   <button 
+                                     disabled
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#ea4335]/20 text-[#ea4335] rounded py-2 text-sm font-bold cursor-not-allowed border border-[#ea4335]/30"
+                                     title="Account disabled — pay strike fine to reactivate"
+                                   >
+                                     ⛔ Account Disabled
+                                   </button>
+                                 ) : netDuesForRunner >= 50 ? (
+                                   <button 
+                                     disabled
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"
+                                     title="Clear dues to accept jobs"
+                                   >
+                                     🔒 Clear ₹{netDuesForRunner} Dues First
+                                   </button>
+                                 ) : (
+                                   <button 
+                                     onClick={() => claimJob(order.id)} 
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#202124] transition-colors rounded py-2 text-sm font-bold shadow-lg"
+                                   >
+                                     <Check size={16} /> Accept — Earn ₹{netProfit}
+                                   </button>
+                                 )}
                              </div>
                           </div>
                           );
@@ -1373,47 +1467,18 @@ export default function Dashboard() {
                           };
                           const date = new Date(order.created_at);
                           const dateStr = `${date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} • ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+                          const shortId = order.short_id || generateShortId(order.id);
                           
                           return (
-                            <div key={order.id} className="p-4 bg-[#292a2d] border border-[#3c4043] rounded-lg hover:border-[#5f6368] transition-colors">
-                              <div className="flex justify-between items-start mb-3">
-                                <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border bg-[#202124] ${statusColors[order.status] || 'text-[#9aa0a6] border-[#3c4043]'}`}>
-                                    {order.status}
-                                  </span>
-                                  <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border bg-[#202124] ${role === 'Runner' ? 'text-[#8ab4f8] border-[#8ab4f8]/30' : role === 'Buyer' ? 'text-[#fde293] border-[#fde293]/30' : 'text-[#9aa0a6] border-[#3c4043]'}`}>
-                                    {role}
-                                  </span>
-                                </div>
-                                <p className="text-xs text-[#9aa0a6]">{dateStr}</p>
-                              </div>
-                              
-                              <div className="flex justify-between items-center">
-                                <div>
-                                  <p className="text-sm font-medium text-[#e8eaed]">
-                                    {order.file_metadata?.[0]?.name || 'Document'} 
-                                    {order.file_metadata?.length > 1 && ` (+${order.file_metadata.length - 1} more)`}
-                                  </p>
-                                  <p className="text-xs text-[#9aa0a6] mt-1">📍 {order.delivery_location || 'Campus'} • {order.page_count || '—'} pages</p>
-                                </div>
-                                <p className="text-lg font-bold text-[#e8eaed]">₹{order.total_price || 0}</p>
-                              </div>
-
-                              {/* File links */}
-                              {order.file_metadata?.some((f: any) => f.url) && (
-                                <div className="mt-3 pt-3 border-t border-[#3c4043] flex flex-wrap gap-2">
-                                  {order.file_metadata.filter((f: any) => f.url).map((file: any, i: number) => (
-                                    <button 
-                                      key={i}
-                                      onClick={() => window.open(file.url, '_blank')} 
-                                      className="text-xs text-[#8ab4f8] hover:text-[#aecbfa] flex items-center gap-1 bg-[#202124] px-2 py-1 rounded border border-[#3c4043]"
-                                    >
-                                      <Eye size={12} /> {file.name}
-                                    </button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
+                            <OrderDetailCard
+                              key={order.id}
+                              order={order}
+                              role={role}
+                              statusColors={statusColors}
+                              dateStr={dateStr}
+                              shortId={shortId}
+                              currentUserEmail={session?.user?.email || ''}
+                            />
                           );
                         })}
                       </div>
@@ -1496,69 +1561,32 @@ function BuyerOrderHistory({ email, onResumeOrder }: { email: string; onResumeOr
     );
   }
 
-  const statusColors: Record<string, string> = {
-    delivered: 'text-[#81c995] border-[#81c995]/30',
-    cancelled: 'text-[#ea4335] border-[#ea4335]/30',
-    accepted: 'text-[#8ab4f8] border-[#8ab4f8]/30',
-    printing: 'text-[#fde293] border-[#fde293]/30',
-    ready: 'text-[#fde293] border-[#fde293]/30',
-    searching: 'text-[#9aa0a6] border-[#9aa0a6]/30',
-  };
-
   return (
     <div className="space-y-3">
       {orders.map((order) => {
         const date = new Date(order.created_at);
         const dateStr = `${date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} • ${date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}`;
+        const shortId = order.short_id || generateShortId(order.id);
+        const statusColors: Record<string, string> = {
+          delivered: 'text-[#81c995] border-[#81c995]/30',
+          cancelled: 'text-[#ea4335] border-[#ea4335]/30',
+          accepted: 'text-[#8ab4f8] border-[#8ab4f8]/30',
+          printing: 'text-[#fde293] border-[#fde293]/30',
+          ready: 'text-[#fde293] border-[#fde293]/30',
+          searching: 'text-[#9aa0a6] border-[#9aa0a6]/30',
+        };
         
         return (
-          <div key={order.id} className="p-4 bg-[#292a2d] border border-[#3c4043] rounded-lg hover:border-[#5f6368] transition-colors">
-            <div className="flex justify-between items-start mb-3">
-              <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border bg-[#202124] ${statusColors[order.status] || 'text-[#9aa0a6] border-[#3c4043]'}`}>
-                {order.status}
-              </span>
-              <p className="text-xs text-[#9aa0a6]">{dateStr}</p>
-            </div>
-            
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium text-[#e8eaed]">
-                  {order.file_metadata?.[0]?.name || 'Document'} 
-                  {order.file_metadata?.length > 1 && ` (+${order.file_metadata.length - 1} more)`}
-                </p>
-                <p className="text-xs text-[#9aa0a6] mt-1">
-                  📍 {order.delivery_location || 'Campus'} • {order.page_count || '—'} pages
-                  {order.runner_name ? ` • Runner: ${order.runner_name}` : ''}
-                </p>
-              </div>
-              <p className="text-lg font-bold text-[#e8eaed]">₹{order.total_price || 0}</p>
-            </div>
-
-            {order.file_metadata?.some((f: any) => f.url) && (
-              <div className="mt-3 pt-3 border-t border-[#3c4043] flex flex-wrap gap-2">
-                {order.file_metadata.filter((f: any) => f.url).map((file: any, i: number) => (
-                  <button 
-                    key={i}
-                    onClick={() => window.open(file.url, '_blank')} 
-                    className="text-xs text-[#8ab4f8] hover:text-[#aecbfa] flex items-center gap-1 bg-[#202124] px-2 py-1 rounded border border-[#3c4043]"
-                  >
-                    <Eye size={12} /> {file.name}
-                  </button>
-                ))}
-              </div>
-            )}
-            {/* Track button for active orders */}
-            {['searching', 'accepted', 'printing', 'ready'].includes(order.status) && onResumeOrder && (
-              <div className="mt-3 pt-3 border-t border-[#3c4043]">
-                <button
-                  onClick={() => onResumeOrder(order)}
-                  className="w-full text-center text-sm font-medium text-[#8ab4f8] hover:text-[#aecbfa] bg-[#8ab4f8]/10 hover:bg-[#8ab4f8]/20 py-2 rounded-lg transition-colors flex items-center justify-center gap-2"
-                >
-                  <Eye size={14} /> Track This Order
-                </button>
-              </div>
-            )}
-          </div>
+          <OrderDetailCard
+            key={order.id}
+            order={order}
+            role="Buyer"
+            statusColors={statusColors}
+            dateStr={dateStr}
+            shortId={shortId}
+            currentUserEmail={email}
+            onResumeOrder={onResumeOrder}
+          />
         );
       })}
     </div>
@@ -1706,10 +1734,20 @@ function PaymentHandshakeModal({
               </button>
             </>
           ) : (
-            <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="flex flex-col items-center gap-3 text-[#81c995] font-medium py-6">
-              <CheckCircle2 size={48} className="animate-pulse" />
-              <p className="text-xl mt-2 tracking-tight">Job Complete! 🎉</p>
-            </motion.div>
+            <div className="flex flex-col items-center gap-3 py-4">
+              <motion.div initial={{ scale: 0.9 }} animate={{ scale: 1 }} className="flex flex-col items-center gap-3 text-[#81c995] font-medium">
+                <CheckCircle2 size={48} className="animate-pulse" />
+                <p className="text-xl mt-2 tracking-tight">Job Complete! 🎉</p>
+              </motion.div>
+              {order?.buyer_id && order?.runner_id && (
+                <RatingAndReportWidget
+                  orderId={order.id}
+                  currentUserEmail={order.runner_id}
+                  otherUserEmail={order.buyer_id}
+                  currentUserRole="runner"
+                />
+              )}
+            </div>
           )}
         </motion.div>
       </motion.div>
@@ -1717,7 +1755,7 @@ function PaymentHandshakeModal({
   );
 }
 
-function GhostCreditWidget({ balance = -20 }: { balance?: number }) {
+function PagenCreditWidget({ balance = -20 }: { balance?: number }) {
   const maxLimit = -50;
   const usedAmount = Math.max(0, -balance);
   const percentage = Math.min(100, Math.round((usedAmount / Math.abs(maxLimit)) * 100));
@@ -1732,11 +1770,11 @@ function GhostCreditWidget({ balance = -20 }: { balance?: number }) {
       <div className="relative w-full">
         <div className="flex justify-between items-start mb-2">
           <div className="flex items-center gap-2">
-            <p className="text-xs text-[#9aa0a6] uppercase tracking-wider">Ghost Credit</p>
+            <p className="text-xs text-[#9aa0a6] uppercase tracking-wider">Pagen Credit</p>
             <div className="relative group/tooltip cursor-help">
               <Info size={14} className="text-[#5f6368] hover:text-[#9aa0a6] transition-colors" />
               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2 rounded bg-[#202124] border border-[#5f6368] text-xs text-[#e8eaed] opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all shadow-md z-50 text-center">
-                Ghost Credits allow you to take jobs. You only pay back after you earn cash.
+                Pagen Credits allow you to take jobs. You only pay back after you earn cash.
               </div>
             </div>
           </div>
@@ -1800,9 +1838,33 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
 
   const runnerName = order?.runner_name || order?.runner_id?.split('@')[0] || 'Runner';
   const totalPrice = order?.total_price || 0;
+  const [runnerRating, setRunnerRating] = useState<{avg: number, count: number}>({avg: 0, count: 0});
+
+  useEffect(() => {
+    if (!order?.runner_id) return;
+    fetch(`/api/ratings?user_email=${encodeURIComponent(order.runner_id)}`)
+      .then(r => r.json())
+      .then(d => setRunnerRating({avg: d.avg_rating || 0, count: d.total_ratings || 0}))
+      .catch(() => {});
+  }, [order?.runner_id]);
 
   const handleLateCancel = () => {
     setShowStrikeWarning(true);
+  };
+
+  const executeLateCancel = async () => {
+    setShowStrikeWarning(false);
+    // Record the strike via API
+    try {
+      await fetch('/api/strikes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'add_strike' }),
+      });
+    } catch (e) {
+      console.error('Failed to add strike:', e);
+    }
+    onCancel();
   };
 
   return (
@@ -1842,7 +1904,7 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
                 Keep Order
               </button>
               <button 
-                onClick={() => { setShowStrikeWarning(false); onCancel(); }}
+                onClick={executeLateCancel}
                 className="flex-1 bg-[#ea4335] text-white py-2 rounded-md text-sm font-bold hover:bg-[#d93025] transition-colors"
               >
                 Cancel Anyway
@@ -1858,7 +1920,16 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
           <CheckCircle2 size={28} className="text-[#81c995]" />
         </div>
         <div className="flex-1">
-          <h3 className="text-xl font-medium text-white">Order Accepted by {runnerName}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-xl font-medium text-white">Order Accepted by {runnerName}</h3>
+            {runnerRating.count > 0 && (
+              <span className="flex items-center gap-1 bg-[#fde293]/10 border border-[#fde293]/30 px-2 py-0.5 rounded text-xs">
+                <Star size={12} className="text-[#fde293] fill-[#fde293]" />
+                <span className="text-[#fde293] font-bold">{runnerRating.avg.toFixed(1)}</span>
+                <span className="text-[#9aa0a6]">({runnerRating.count})</span>
+              </span>
+            )}
+          </div>
           <p className="text-[#9aa0a6] text-sm">Your runner is preparing to print your documents.</p>
         </div>
       </div>
@@ -2070,7 +2141,17 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
                 Keep Job
               </button>
               <button 
-                onClick={() => { setShowStrikeWarning(false); onCancel(order.id); }}
+                onClick={async () => { 
+                  setShowStrikeWarning(false); 
+                  try {
+                    await fetch('/api/strikes', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ action: 'add_strike' }),
+                    });
+                  } catch (e) { console.error('Failed to add strike:', e); }
+                  onCancel(order.id); 
+                }}
                 className="flex-1 bg-[#ea4335] text-white py-2 rounded text-xs font-bold hover:bg-[#d93025] transition-colors"
               >
                 Drop Job
@@ -2155,6 +2236,465 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+// Star Rating Input — interactive 5-star picker
+function StarRatingInput({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [hover, setHover] = useState(0);
+  return (
+    <div className="flex items-center gap-1">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => onChange(star)}
+          onMouseEnter={() => setHover(star)}
+          onMouseLeave={() => setHover(0)}
+          className="p-0.5 transition-transform hover:scale-110"
+        >
+          <Star
+            size={28}
+            className={`transition-colors ${
+              (hover || value) >= star
+                ? 'text-[#fde293] fill-[#fde293]'
+                : 'text-[#5f6368]'
+            }`}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
+// Rating & Report Widget — shown after delivery for both buyer and runner
+function RatingAndReportWidget({ 
+  orderId, 
+  currentUserEmail, 
+  otherUserEmail, 
+  currentUserRole 
+}: { 
+  orderId: string; 
+  currentUserEmail: string; 
+  otherUserEmail: string;
+  currentUserRole: 'buyer' | 'runner';
+}) {
+  const [rating, setRating] = useState(0);
+  const [submitted, setSubmitted] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportText, setReportText] = useState('');
+  const [reportSubmitted, setReportSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [existingRating, setExistingRating] = useState<number | null>(null);
+
+  useEffect(() => {
+    // Check if already rated
+    fetch(`/api/ratings?order_id=${orderId}`)
+      .then(r => r.json())
+      .then(data => {
+        const myRating = data.ratings?.find((r: any) => r.rater_email === currentUserEmail);
+        if (myRating) {
+          setExistingRating(myRating.stars);
+          setRating(myRating.stars);
+          setSubmitted(true);
+        }
+      })
+      .catch(() => {});
+  }, [orderId, currentUserEmail]);
+
+  const submitRating = async () => {
+    if (rating === 0) return;
+    setLoading(true);
+    try {
+      await fetch('/api/ratings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          ratee_email: otherUserEmail,
+          rater_role: currentUserRole,
+          stars: rating,
+        }),
+      });
+      setSubmitted(true);
+    } catch (err) {
+      console.error('Rating failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const submitReport = async () => {
+    if (!reportText.trim()) return;
+    setLoading(true);
+    try {
+      await fetch('/api/reports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: orderId,
+          reported_email: otherUserEmail,
+          feedback: reportText.trim(),
+        }),
+      });
+      setReportSubmitted(true);
+    } catch (err) {
+      console.error('Report failed:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const otherRole = currentUserRole === 'buyer' ? 'Runner' : 'Buyer';
+  const otherName = otherUserEmail?.split('@')[0] || otherRole;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, y: 10 }} 
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-[#292a2d] border border-[#3c4043] rounded-xl p-6 mt-4"
+    >
+      {!submitted ? (
+        <div className="text-center">
+          <h4 className="text-white font-medium text-lg mb-1">Rate {otherName}</h4>
+          <p className="text-[#9aa0a6] text-xs mb-4">How was your experience with this {otherRole.toLowerCase()}?</p>
+          <div className="flex justify-center mb-4">
+            <StarRatingInput value={rating} onChange={setRating} />
+          </div>
+          <button
+            onClick={submitRating}
+            disabled={rating === 0 || loading}
+            className={`px-8 py-2.5 rounded-lg font-medium text-sm transition-colors ${
+              rating > 0
+                ? 'bg-[#8ab4f8] text-[#202124] hover:bg-[#aecbfa]'
+                : 'bg-[#3c4043] text-[#5f6368] cursor-not-allowed'
+            }`}
+          >
+            {loading ? 'Submitting...' : 'Submit Rating'}
+          </button>
+        </div>
+      ) : (
+        <div className="text-center">
+          <div className="flex justify-center mb-2">
+            {[1, 2, 3, 4, 5].map((s) => (
+              <Star
+                key={s}
+                size={24}
+                className={s <= rating ? 'text-[#fde293] fill-[#fde293]' : 'text-[#5f6368]'}
+              />
+            ))}
+          </div>
+          <p className="text-[#81c995] text-sm font-medium">✓ Rating submitted — Thank you!</p>
+        </div>
+      )}
+
+      {/* Report Section */}
+      <div className="mt-4 pt-4 border-t border-[#3c4043]">
+        {!showReport && !reportSubmitted ? (
+          <button
+            onClick={() => setShowReport(true)}
+            className="flex items-center gap-2 text-[#ea4335]/70 hover:text-[#ea4335] text-xs font-medium transition-colors mx-auto"
+          >
+            <Flag size={12} /> Report {otherName}
+          </button>
+        ) : reportSubmitted ? (
+          <p className="text-[#9aa0a6] text-xs text-center">✓ Report submitted. We'll review it shortly.</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-[#9aa0a6] text-xs font-medium">Describe the issue with {otherName}:</p>
+            <textarea
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+              placeholder="Tell us what happened..."
+              className="w-full bg-[#202124] border border-[#5f6368] rounded-lg px-4 py-3 text-sm text-white focus:border-[#ea4335] outline-none transition-colors placeholder:text-[#5f6368] resize-none"
+              rows={3}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowReport(false)}
+                className="flex-1 border border-[#5f6368] text-[#9aa0a6] py-2 rounded-lg text-xs font-medium hover:bg-[#3c4043] transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReport}
+                disabled={!reportText.trim() || loading}
+                className="flex-1 bg-[#ea4335] text-white py-2 rounded-lg text-xs font-bold hover:bg-[#d93025] transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Sending...' : 'Submit Report'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// Inline Rating Badge — small star+number shown in gig cards
+function InlineRatingBadge({ email }: { email: string }) {
+  const [data, setData] = useState<{ avg: number; count: number } | null>(null);
+
+  useEffect(() => {
+    if (!email) return;
+    fetch(`/api/ratings?user_email=${encodeURIComponent(email)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.total_ratings > 0) {
+          setData({ avg: d.avg_rating, count: d.total_ratings });
+        }
+      })
+      .catch(() => {});
+  }, [email]);
+
+  if (!data) return null;
+
+  return (
+    <span className="flex items-center gap-1 text-xs">
+      <Star size={10} className="text-[#fde293] fill-[#fde293]" />
+      <span className="text-[#fde293] font-medium">{data.avg.toFixed(1)}</span>
+    </span>
+  );
+}
+
+// OrderDetailCard — expandable order card with full details and invoice download
+function OrderDetailCard({ 
+  order, 
+  role, 
+  statusColors, 
+  dateStr, 
+  shortId,
+  currentUserEmail,
+  onResumeOrder,
+}: { 
+  order: any; 
+  role: string; 
+  statusColors: Record<string, string>; 
+  dateStr: string; 
+  shortId: string;
+  currentUserEmail: string;
+  onResumeOrder?: (order: any) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  
+  const isRunner = order.runner_id === currentUserEmail;
+  const isBuyer = order.buyer_id === currentUserEmail;
+  const buyerName = order.buyer_id?.split('@')[0] || 'Buyer';
+  const runnerName = order.runner_name || order.runner_id?.split('@')[0] || 'Unassigned';
+
+  // Calculate runner earnings
+  const BASE_BW = 2;
+  const BASE_COLOR = 5;
+  let baseCost = 0;
+  if (order.file_metadata) {
+    for (const file of order.file_metadata) {
+      const baseRate = file.colorMode === 'color' ? BASE_COLOR : BASE_BW;
+      const copies = file.copies || 1;
+      baseCost += (file.pages || 0) * baseRate * copies;
+    }
+  }
+  const totalPrice = Number(order.total_price) || 0;
+  const isBaseRate = totalPrice <= baseCost;
+  const platformFee = isBaseRate ? 0 : Math.round(baseCost * 0.10);
+  const netEarnings = totalPrice - baseCost - platformFee;
+
+  const handleDownloadInvoice = () => {
+    const date = new Date(order.created_at);
+    const invoiceData: InvoiceData = {
+      orderId: order.id,
+      shortId: shortId,
+      date: date.toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }),
+      time: date.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      status: order.status,
+      buyerName: buyerName,
+      buyerEmail: order.buyer_id || '',
+      runnerName: runnerName,
+      runnerEmail: order.runner_id || '',
+      deliveryLocation: order.delivery_location || 'Campus',
+      files: (order.file_metadata || []).map((f: any) => ({
+        name: f.name || 'Document',
+        pages: f.pages || 0,
+        colorMode: f.colorMode || 'bw',
+        copies: f.copies || 1,
+      })),
+      totalPages: order.page_count || 0,
+      totalPrice: totalPrice,
+      baseCost: baseCost,
+      platformFee: platformFee,
+      netEarnings: netEarnings,
+      viewerRole: isRunner ? 'runner' : 'buyer',
+    };
+    downloadInvoice(invoiceData);
+  };
+
+  return (
+    <div className="bg-[#292a2d] border border-[#3c4043] rounded-lg hover:border-[#5f6368] transition-colors overflow-hidden">
+      {/* Collapsed Header — always visible */}
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="w-full p-4 text-left flex items-center gap-3"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border bg-[#202124] ${statusColors[order.status] || 'text-[#9aa0a6] border-[#3c4043]'}`}>
+              {order.status}
+            </span>
+            <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border bg-[#202124] ${role === 'Runner' ? 'text-[#8ab4f8] border-[#8ab4f8]/30' : 'text-[#fde293] border-[#fde293]/30'}`}>
+              {role}
+            </span>
+            <span className="text-[10px] font-mono text-[#9aa0a6] tracking-wider">{shortId}</span>
+          </div>
+          <div className="flex justify-between items-center">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-[#e8eaed] truncate">
+                {order.file_metadata?.[0]?.name || 'Document'} 
+                {order.file_metadata?.length > 1 && ` (+${order.file_metadata.length - 1} more)`}
+              </p>
+              <p className="text-xs text-[#9aa0a6] mt-0.5">
+                📍 {order.delivery_location || 'Campus'} • {order.page_count || '—'} pages • {dateStr}
+              </p>
+            </div>
+            <div className="flex items-center gap-3 shrink-0 ml-3">
+              <p className="text-lg font-bold text-[#e8eaed]">₹{totalPrice}</p>
+              {expanded ? <ChevronUp size={16} className="text-[#9aa0a6]" /> : <ChevronDown size={16} className="text-[#9aa0a6]" />}
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {/* Expanded Details */}
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="px-4 pb-4 space-y-4 border-t border-[#3c4043]">
+              {/* Order ID */}
+              <div className="pt-4 flex items-center gap-3">
+                <div className="bg-[#202124] border border-[#3c4043] rounded-lg px-4 py-2 flex items-center gap-2">
+                  <FileText size={14} className="text-[#8ab4f8]" />
+                  <div>
+                    <p className="text-[10px] text-[#9aa0a6] uppercase tracking-wider">Order ID</p>
+                    <p className="text-sm font-mono font-bold text-[#8ab4f8] tracking-wider">{shortId}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Parties */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-3">
+                  <p className="text-[10px] text-[#9aa0a6] uppercase tracking-wider mb-1">
+                    {isRunner ? 'Buyer' : 'You (Buyer)'}
+                  </p>
+                  <p className="text-sm font-medium text-white">{isRunner ? buyerName : buyerName}</p>
+                  <p className="text-[11px] text-[#9aa0a6] truncate">{order.buyer_id}</p>
+                </div>
+                <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-3">
+                  <p className="text-[10px] text-[#9aa0a6] uppercase tracking-wider mb-1">
+                    {isBuyer ? 'Runner' : 'You (Runner)'}
+                  </p>
+                  <p className="text-sm font-medium text-white">{runnerName}</p>
+                  <p className="text-[11px] text-[#9aa0a6] truncate">{order.runner_id || 'Not assigned'}</p>
+                </div>
+              </div>
+
+              {/* Document Stack */}
+              <div>
+                <p className="text-[10px] text-[#9aa0a6] uppercase tracking-wider mb-2">Documents ({order.file_metadata?.length || 0})</p>
+                <div className="space-y-1.5">
+                  {order.file_metadata?.map((file: any, i: number) => (
+                    <div key={i} className="flex justify-between items-center bg-[#202124] px-3 py-2.5 rounded border border-[#3c4043] text-xs">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <FileText size={12} className="text-[#9aa0a6] shrink-0" />
+                        <span className="text-[#e8eaed] font-medium truncate">{file.name}</span>
+                      </div>
+                      <span className="text-[#9aa0a6] shrink-0 ml-2">
+                        {file.pages}pg • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • ×{file.copies || 1}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Runner Earnings Breakdown */}
+              {isRunner && order.status === 'delivered' && (
+                <div className="bg-[#81c995]/10 border border-[#81c995]/30 rounded-lg p-4">
+                  <p className="text-[10px] text-[#81c995] uppercase tracking-wider font-bold mb-3">Earnings Breakdown</p>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-[#9aa0a6]">Total Collected</span>
+                      <span className="text-white font-medium">₹{totalPrice}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-[#9aa0a6]">Base Print Cost</span>
+                      <span className="text-white">- ₹{baseCost}</span>
+                    </div>
+                    {platformFee > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-[#9aa0a6]">Platform Fee (10%)</span>
+                        <span className="text-white">- ₹{platformFee}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between pt-2 border-t border-[#81c995]/30">
+                      <span className="text-[#81c995] font-bold">Net Earnings</span>
+                      <span className="text-[#81c995] font-bold text-sm">₹{netEarnings}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {/* Download Invoice */}
+                {order.status === 'delivered' && (
+                  <button
+                    onClick={handleDownloadInvoice}
+                    className="flex items-center gap-2 bg-[#202124] border border-[#5f6368] hover:border-[#8ab4f8] text-[#8ab4f8] px-4 py-2.5 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <Download size={14} /> Download Invoice
+                  </button>
+                )}
+
+                {/* Track active order */}
+                {['searching', 'accepted', 'printing', 'ready'].includes(order.status) && onResumeOrder && (
+                  <button
+                    onClick={() => onResumeOrder(order)}
+                    className="flex items-center gap-2 bg-[#8ab4f8]/10 border border-[#8ab4f8]/30 text-[#8ab4f8] px-4 py-2.5 rounded-lg text-xs font-medium hover:bg-[#8ab4f8]/20 transition-colors"
+                  >
+                    <Eye size={14} /> Track Order
+                  </button>
+                )}
+
+                {/* File links */}
+                {order.file_metadata?.filter((f: any) => f.url).map((file: any, i: number) => (
+                  <button 
+                    key={i}
+                    onClick={() => window.open(file.url, '_blank')} 
+                    className="flex items-center gap-1.5 bg-[#202124] border border-[#3c4043] text-[#8ab4f8] hover:text-[#aecbfa] px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                  >
+                    <Eye size={12} /> {file.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Rating for delivered orders */}
+              {order.status === 'delivered' && (
+                <RatingAndReportWidget
+                  orderId={order.id}
+                  currentUserEmail={currentUserEmail}
+                  otherUserEmail={isRunner ? order.buyer_id : order.runner_id}
+                  currentUserRole={isRunner ? 'runner' : 'buyer'}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

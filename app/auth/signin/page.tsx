@@ -75,10 +75,10 @@ export default function SignInPage() {
         className="relative z-10 w-full max-w-md p-8 sm:p-10 rounded-3xl bg-white/5 border border-white/10 backdrop-blur-2xl shadow-[0_0_50px_rgba(79,70,229,0.15)] flex flex-col items-center text-center"
       >
         <div className="w-20 h-20 rounded-2xl border border-indigo-500/30 flex items-center justify-center mb-6 shadow-[0_0_30px_rgba(79,70,229,0.3)] overflow-hidden">
-          <img src="/Logo.jpg" alt="GhostPrint" className="w-full h-full object-cover" />
+          <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover" />
         </div>
 
-        <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">GhostPrint</h1>
+        <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">Pagen</h1>
         <p className="text-gray-400 mb-10 text-sm">Welcome back. Secure login for students.</p>
 
         {/* Large Styled Sign In Button */}

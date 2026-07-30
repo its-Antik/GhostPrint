@@ -1,4 +1,4 @@
--- GhostPrint: Fix profiles table for NextAuth compatibility
+-- Pagen: Fix profiles table for NextAuth compatibility
 -- Run this ONCE in Supabase Dashboard → SQL Editor → New Query → Run
 --
 -- Problem: profiles.id has a foreign key to auth.users, but we use 

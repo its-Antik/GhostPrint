@@ -13,7 +13,7 @@ const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMA
 
 // Configure Web Push with VAPID keys
 webPush.setVapidDetails(
-  `mailto:${ADMIN_EMAIL || 'admin@ghostprint.com'}`,
+  `mailto:${ADMIN_EMAIL || 'admin@pagen.co'}`,
   process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "",
   process.env.VAPID_PRIVATE_KEY || ""
 );
@@ -55,25 +55,25 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Determine recipients
-    let recipients = [];
+    let recipients: { username: string; push_subscription?: any }[] = [];
     if (target_email === "all") {
       // Global broadcast — all users
-      const { data: profiles, error } = await supabaseAdmin.from('profiles').select('username');
+      const { data: profiles, error } = await supabaseAdmin.from('profiles').select('username, push_subscription');
       if (error) console.error("Error fetching all profiles:", error);
       if (profiles) recipients = profiles;
     } else if (target_email.startsWith("all@")) {
       // MULTI-TENANT: Domain-scoped broadcast — e.g., "all@heritageit.edu.in"
       const domain = target_email.split("@")[1];
       const { data: profiles, error } = await supabaseAdmin
-        .from('profiles')
-        .select('username')
-        .eq('college_domain', domain);
+         .from('profiles')
+         .select('username, push_subscription')
+         .eq('college_domain', domain);
       if (error) console.error("Error fetching campus profiles:", error);
       if (profiles) recipients = profiles;
     } else {
       const { data: profile, error } = await supabaseAdmin
         .from('profiles')
-        .select('username')
+        .select('username, push_subscription')
         .eq('username', target_email)
         .single();
       if (error) console.error("Error fetching profile:", error);
@@ -118,8 +118,8 @@ export async function POST(req: NextRequest) {
         const pushPayload = JSON.stringify({
           title,
           body: message,
-          icon: "/Logo.jpg",
-          badge: "/Logo.jpg"
+          icon: "/Logo.jpg?v=2",
+          badge: "/Logo.jpg?v=2"
         });
         promises.push(
           webPush.sendNotification(user.push_subscription, pushPayload).catch((e) => {

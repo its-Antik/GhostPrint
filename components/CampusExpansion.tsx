@@ -195,7 +195,7 @@ export default function CampusExpansion() {
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">yet?</span>
           </h2>
           <p className="text-gray-400 max-w-xl mx-auto">
-            We're expanding to new colleges. Request GhostPrint for your campus — once 25 students sign up, we unlock the grid.
+            We're expanding to new colleges. Request Pagen for your campus — once 25 students sign up, we unlock the grid.
           </p>
         </motion.div>
 
@@ -205,7 +205,7 @@ export default function CampusExpansion() {
             onClick={() => { setShowModal(true); setSubmitStatus("idle"); setErrorMessage(""); setSuggestedName(""); setIsCollegeLocked(false); }}
             className="inline-flex items-center gap-3 px-8 py-4 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 text-white font-semibold text-lg transition-all shadow-[0_0_30px_rgba(79,70,229,0.3)] hover:shadow-[0_0_40px_rgba(79,70,229,0.5)] active:scale-[0.97]"
           >
-            <MapPin size={20} /> Bring GhostPrint to My Campus
+            <MapPin size={20} /> Bring Pagen to My Campus
           </button>
         </motion.div>
 
@@ -240,7 +240,7 @@ export default function CampusExpansion() {
               <div className="px-6 py-16 text-center">
                 <Globe size={32} className="text-gray-600 mx-auto mb-3" />
                 <p className="text-gray-400 font-medium mb-1">No campuses yet</p>
-                <p className="text-gray-600 text-sm">Be the first to request GhostPrint for your college!</p>
+                <p className="text-gray-600 text-sm">Be the first to request Pagen for your college!</p>
               </div>
             ) : (
               <div className="divide-y divide-white/[0.04]">
@@ -320,7 +320,7 @@ export default function CampusExpansion() {
           <div>
             <h4 className="font-bold text-white text-sm mb-1">Founding Runner Reward</h4>
             <p className="text-gray-400 text-sm leading-relaxed">
-              Students who help launch GhostPrint at new campuses earn{" "}
+              Students who help launch Pagen at new campuses earn{" "}
               <span className="text-amber-400 font-semibold">"Founding Runner" status</span> — 0% platform fees for life and early access to the Admin Dashboard.
             </p>
           </div>
@@ -374,7 +374,7 @@ export default function CampusExpansion() {
                         </div>
                         <h3 className="text-xl font-bold text-white">Request Expansion</h3>
                       </div>
-                      <p className="text-gray-400 text-sm">GhostPrint isn't at your campus yet? Let's change that.</p>
+                      <p className="text-gray-400 text-sm">Pagen isn't at your campus yet? Let's change that.</p>
                     </div>
 
                     <form onSubmit={handleSubmit} className="relative z-10 space-y-5">

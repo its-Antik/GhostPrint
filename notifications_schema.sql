@@ -1,5 +1,5 @@
 -- ============================================================
--- GhostPrint Notification System Schema
+-- Pagen Notification System Schema
 -- Run this in your Supabase SQL Editor
 -- ============================================================
 

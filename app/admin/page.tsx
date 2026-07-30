@@ -162,7 +162,7 @@ export default function AdminBroadcast() {
             {/* Bonuses & Push */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-white/5">
               <div>
-                <label className="block text-sm font-medium text-gray-400 mb-2">Give Ghost Credits (Optional)</label>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Give Pagen Credits (Optional)</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <Gift size={16} className="text-emerald-500" />
