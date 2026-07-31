@@ -2815,16 +2815,33 @@ function OrderDetailCard({
                   </button>
                 )}
 
-                {/* File links */}
-                {order.file_metadata?.filter((f: any) => f.url).map((file: any, i: number) => (
-                  <button 
-                    key={i}
-                    onClick={() => window.open(file.url, '_blank')} 
-                    className="flex items-center gap-1.5 bg-[#202124] border border-[#3c4043] text-[#8ab4f8] hover:text-[#aecbfa] px-3 py-2 rounded-lg text-xs font-medium transition-colors"
-                  >
-                    <Eye size={12} /> {file.name}
-                  </button>
-                ))}
+                {/* File links — expire after 12 hours for privacy */}
+                {(() => {
+                  const orderAge = Date.now() - new Date(order.created_at).getTime();
+                  const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+                  const linksExpired = orderAge > TWELVE_HOURS;
+                  const filesWithUrls = order.file_metadata?.filter((f: any) => f.url) || [];
+
+                  if (filesWithUrls.length === 0) return null;
+
+                  if (linksExpired) {
+                    return (
+                      <span className="text-[10px] text-[#9aa0a6] italic">
+                        🔒 File links expired (12h privacy policy)
+                      </span>
+                    );
+                  }
+
+                  return filesWithUrls.map((file: any, i: number) => (
+                    <button 
+                      key={i}
+                      onClick={() => window.open(file.url, '_blank')} 
+                      className="flex items-center gap-1.5 bg-[#202124] border border-[#3c4043] text-[#8ab4f8] hover:text-[#aecbfa] px-3 py-2 rounded-lg text-xs font-medium transition-colors"
+                    >
+                      <Eye size={12} /> {file.name}
+                    </button>
+                  ));
+                })()}
               </div>
 
               {/* Rating for delivered orders */}

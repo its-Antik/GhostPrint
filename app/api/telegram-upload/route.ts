@@ -1,3 +1,4 @@
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 
@@ -13,7 +14,7 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB — Telegram Bot API limit
 // POST — upload a file to Telegram channel via Bot API, return viewable URL
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }

@@ -1,3 +1,4 @@
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { createClient } from "@supabase/supabase-js";
@@ -16,7 +17,7 @@ const supabaseAdmin = createClient(
 export async function GET(req: NextRequest) {
   try {
     // 1. Authentication check
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
       return NextResponse.json({ error: "Unauthorized — sign in first" }, { status: 401 });
     }

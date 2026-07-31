@@ -270,13 +270,7 @@ export default function LandingPage() {
                       <div><strong className="text-white">Zero Upfront Fees.</strong> <span className="text-gray-400">Join the network for free. We only take a micro-percentage of your successful deliveries.</span></div>
                     </li>
                   </ul>
-                  <Link
-                    href="/dashboard"
-                    onClick={() => setActiveModal(null)}
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/5 border border-white/10 text-gray-300 hover:bg-white/10 hover:text-white transition-all text-sm font-medium"
-                  >
-                    Initialize Runner Profile <ArrowRight size={14} />
-                  </Link>
+
 
                   {/* Divider */}
                   <hr className="my-8 border-gray-800" />
@@ -377,7 +371,11 @@ export default function LandingPage() {
         </div>
         <div className="flex items-center gap-4 sm:gap-6 text-sm font-medium">
           <button onClick={() => setActiveModal("about")} className="hidden md:block text-gray-300 hover:text-white transition-colors">About Us</button>
-          <Link href="/contact" className="hidden md:block text-gray-300 hover:text-white transition-colors">Contact</Link>
+          {session ? (
+            <Link href="/contact" className="hidden md:block text-gray-300 hover:text-white transition-colors">Contact</Link>
+          ) : (
+            <Link href="/auth/signin?callbackUrl=/contact" className="hidden md:block text-gray-300 hover:text-white transition-colors">Contact</Link>
+          )}
           <button 
             onClick={() => document.getElementById('how-it-works')?.scrollIntoView({ behavior: 'smooth' })} 
             className="hidden md:block text-gray-300 hover:text-white transition-colors"
@@ -609,7 +607,11 @@ export default function LandingPage() {
               <ul className="space-y-3 text-sm text-gray-400">
                 <li><button onClick={() => setActiveModal("about")} className="hover:text-white transition-colors">About Us</button></li>
                 <li><button onClick={() => setActiveModal("workwithus")} className="hover:text-white transition-colors">Work with us</button></li>
-                <li><Link href="/contact" className="hover:text-white transition-colors">Contact</Link></li>
+                <li>{session ? (
+                  <Link href="/contact" className="hover:text-white transition-colors">Contact</Link>
+                ) : (
+                  <Link href="/auth/signin?callbackUrl=/contact" className="hover:text-white transition-colors">Contact</Link>
+                )}</li>
               </ul>
             </div>
 

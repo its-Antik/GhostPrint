@@ -1,3 +1,4 @@
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { createClient } from "@supabase/supabase-js";
@@ -43,7 +44,7 @@ export async function GET() {
  */
 export async function PATCH(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getServerSession(authOptions);
     if (!session?.user?.email || session.user.email !== ADMIN_EMAIL) {
       return NextResponse.json({ error: "Unauthorized — admin only" }, { status: 403 });
     }

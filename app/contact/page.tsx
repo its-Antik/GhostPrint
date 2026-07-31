@@ -142,6 +142,13 @@ export default function ContactPage() {
                     "Send to Headquarters"
                   )}
                 </button>
+
+                <p className="text-center text-gray-500 text-xs mt-4">
+                  or email us directly at{" "}
+                  <a href="mailto:unsupervised.labs@proton.me" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                    unsupervised.labs@proton.me
+                  </a>
+                </p>
               </form>
             </motion.div>
           ) : (

@@ -16,7 +16,7 @@ function extractDomain(email: string): string {
   return email.split("@")[1]?.toLowerCase() || "";
 }
 
-const handler = NextAuth({
+export const authOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -24,7 +24,7 @@ const handler = NextAuth({
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
+    async signIn({ user }: any) {
       if (!user.email) return false;
 
       // Admin bypass — always allowed
@@ -59,14 +59,14 @@ const handler = NextAuth({
     },
 
     // Expose college_domain in the JWT session so the frontend can use it
-    async jwt({ token, user }) {
+    async jwt({ token, user }: any) {
       if (user?.email) {
         token.college_domain = extractDomain(user.email);
       }
       return token;
     },
 
-    async session({ session, token }) {
+    async session({ session, token }: any) {
       if (session.user && token.college_domain) {
         (session.user as any).college_domain = token.college_domain;
       }
@@ -78,10 +78,12 @@ const handler = NextAuth({
     error: '/auth/error', 
   },
   session: {
-    strategy: "jwt",
+    strategy: "jwt" as any,
     maxAge: 30 * 24 * 60 * 60, // 30 days
   }
-});
+};
+
+const handler = NextAuth(authOptions);
 
 // Auto-create profile row on first sign-in, tagged with college_domain
 async function ensureProfile(user: any) {

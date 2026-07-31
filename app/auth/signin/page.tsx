@@ -50,13 +50,16 @@ const FloatingParticles = () => {
   );
 };
 
+import { useSearchParams } from "next/navigation";
+
 export default function SignInPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
 
   const handleSignIn = async () => {
     setIsLoading(true);
-    // Setting callbackUrl to "/" (Landing Page)
-    await signIn("google", { callbackUrl: "/" });
+    await signIn("google", { callbackUrl });
   };
 
   return (
