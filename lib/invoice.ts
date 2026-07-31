@@ -173,10 +173,11 @@ export async function createPdfInvoiceBlob(data: InvoiceData): Promise<Blob> {
   }
 
   // Footer
-  const footerY = 40;
+  const footerY = 50;
   page.drawLine({ start: { x: 40, y: footerY + 25 }, end: { x: width - 40, y: footerY + 25 }, thickness: 0.5, color: borderColor });
   page.drawText('This is a system-generated invoice from Pagen — Campus Print Network', { x: width / 2 - 160, y: footerY + 12, size: 8, font: fontRegular, color: darkGray });
-  page.drawText(`Order ID: ${data.shortId}  |  Support: help@pagen.co  |  pagen.co`, { x: width / 2 - 140, y: footerY, size: 8, font: fontBold, color: black });
+  page.drawText(`Order ID: ${data.shortId}`, { x: width / 2 - 35, y: footerY, size: 8, font: fontBold, color: black });
+  page.drawText(`For Support Mail us at unsupervised.labs@proton.me`, { x: width / 2 - 110, y: footerY - 12, size: 8, font: fontBold, color: black });
 
   const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
@@ -458,7 +459,8 @@ function generateInvoiceHtml(data: InvoiceData): string {
     <!-- Footer -->
     <div style="margin-top: 56px; padding-top: 24px; border-top: 2px solid #cbd5e1; text-align: center;">
       <p style="font-size: 12px; color: #334155; font-weight: 600; margin-bottom: 4px;">This is a system-generated invoice from <strong style="color: #0f172a;">Pagen</strong> — Campus Print Network</p>
-      <p style="font-size: 12px; color: #334155; font-weight: 600;">Order ID: <strong style="color: #0f172a;">${data.shortId}</strong> • Support: <strong style="color: #0f172a;">help@pagen.co</strong></p>
+      <p style="font-size: 12px; color: #334155; font-weight: 600; margin-bottom: 4px;">Order ID: <strong style="color: #0f172a;">${data.shortId}</strong></p>
+      <p style="font-size: 12px; color: #334155; font-weight: 600;">For Support Mail us at <strong style="color: #0f172a;">unsupervised.labs@proton.me</strong></p>
     </div>
   </div>
 

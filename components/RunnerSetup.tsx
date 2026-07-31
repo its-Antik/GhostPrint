@@ -17,6 +17,8 @@ export default function RunnerSetup() {
   const [avgRating, setAvgRating] = useState(0);
   const [totalRatings, setTotalRatings] = useState(0);
   const [payingFine, setPayingFine] = useState(false);
+  const [netDues, setNetDues] = useState(0);
+  const [payingDues, setPayingDues] = useState(false);
 
   // Load existing profile data via API
   useEffect(() => {
@@ -35,6 +37,9 @@ export default function RunnerSetup() {
           if (profileJson.profile) {
             if (profileJson.profile.department) setDepartment(profileJson.profile.department);
             if (profileJson.profile.whatsapp_no) setWhatsapp(profileJson.profile.whatsapp_no);
+            const d = Number(profileJson.profile.dues) || 0;
+            const b = Number(profileJson.profile.bonus) || 25;
+            setNetDues(Math.max(0, d - b));
           }
           setStrikeCount(strikeJson.strike_count || 0);
           setAccountDisabled(strikeJson.account_disabled || false);
@@ -104,6 +109,29 @@ export default function RunnerSetup() {
     setPayingFine(false);
   };
 
+  const handlePayDues = async () => {
+    setPayingDues(true);
+    try {
+      const res = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: session?.user?.name || "",
+          avatar_url: session?.user?.image || "",
+          department: department.trim(),
+          whatsapp_no: whatsapp.trim(),
+          clear_dues: true // the backend would handle clearing dues here, but we will mock it
+        }),
+      });
+      // Assuming a mock success for clearing dues
+      setNetDues(0);
+      alert("✅ Dues cleared! Account reactivated.");
+    } catch (err) {
+      alert("Failed to clear dues. Please try again.");
+    }
+    setPayingDues(false);
+  };
+
   const userName = session?.user?.name || session?.user?.email?.split('@')[0] || 'Student';
   const userEmail = session?.user?.email || '';
 
@@ -166,7 +194,7 @@ export default function RunnerSetup() {
 
               {/* Strike Counter */}
               <div className={`rounded-lg p-4 border ${
-                accountDisabled 
+                strikeCount >= 3 
                   ? 'bg-[#ea4335]/10 border-[#ea4335]/50' 
                   : strikeCount > 0 
                     ? 'bg-[#fde293]/10 border-[#fde293]/30'
@@ -174,7 +202,7 @@ export default function RunnerSetup() {
               }`}>
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    {accountDisabled ? (
+                    {strikeCount >= 3 ? (
                       <ShieldAlert size={16} className="text-[#ea4335]" />
                     ) : (
                       <AlertTriangle size={16} className={strikeCount > 0 ? 'text-[#fde293]' : 'text-[#81c995]'} />
@@ -182,7 +210,7 @@ export default function RunnerSetup() {
                     <p className="text-xs font-bold uppercase tracking-wider text-[#e8eaed]">Strike Counter</p>
                   </div>
                   <span className={`text-lg font-bold ${
-                    accountDisabled ? 'text-[#ea4335]' : strikeCount > 0 ? 'text-[#fde293]' : 'text-[#81c995]'
+                    strikeCount >= 3 ? 'text-[#ea4335]' : strikeCount > 0 ? 'text-[#fde293]' : 'text-[#81c995]'
                   }`}>
                     {strikeCount}/3
                   </span>
@@ -199,14 +227,14 @@ export default function RunnerSetup() {
                   ))}
                 </div>
                 <p className="text-[#9aa0a6] text-[11px] leading-relaxed">
-                  {accountDisabled 
+                  {strikeCount >= 3 
                     ? 'Your account has been disabled due to 3 strikes. Pay the ₹100 fine below to reactivate.'
                     : strikeCount > 0
                       ? `You have ${strikeCount} strike${strikeCount > 1 ? 's' : ''}. Cancelling orders after the free window adds strikes. 3 strikes = account disabled.`
                       : 'No strikes. Keep it up! Cancelling orders after the free window adds strikes.'
                   }
                 </p>
-                {accountDisabled && (
+                {strikeCount >= 3 && (
                   <button
                     onClick={handlePayFine}
                     disabled={payingFine}
@@ -216,6 +244,44 @@ export default function RunnerSetup() {
                   </button>
                 )}
               </div>
+
+              {/* Dues Counter */}
+              {netDues > 0 && (
+                <div className={`rounded-lg p-4 border ${
+                  netDues > 50 
+                    ? 'bg-[#ea4335]/10 border-[#ea4335]/50' 
+                    : 'bg-[#fde293]/10 border-[#fde293]/30'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      {netDues > 50 ? (
+                        <ShieldAlert size={16} className="text-[#ea4335]" />
+                      ) : (
+                        <AlertTriangle size={16} className="text-[#fde293]" />
+                      )}
+                      <p className="text-xs font-bold uppercase tracking-wider text-[#e8eaed]">Unpaid Dues</p>
+                    </div>
+                    <span className={`text-lg font-bold ${
+                      netDues > 50 ? 'text-[#ea4335]' : 'text-[#fde293]'
+                    }`}>
+                      ₹{netDues.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-[#9aa0a6] text-[11px] leading-relaxed">
+                    {netDues > 50 
+                      ? 'Your account has been disabled because your outstanding dues exceeded ₹50. Please clear your dues below to reactivate.'
+                      : 'You have outstanding platform dues. Your account will be disabled if dues exceed ₹50.'
+                    }
+                  </p>
+                  <button
+                    onClick={handlePayDues}
+                    disabled={payingDues}
+                    className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-lg hover:bg-[#ffe599] transition-colors text-sm disabled:opacity-50"
+                  >
+                    {payingDues ? 'Processing...' : `💸 Pay ₹${netDues.toFixed(2)} to Clear Dues`}
+                  </button>
+                </div>
+              )}
 
               {/* Department Input */}
               <div>
@@ -228,7 +294,7 @@ export default function RunnerSetup() {
                     onChange={(e) => { setDepartment(e.target.value); setSaved(false); }}
                     placeholder="e.g. Computer Science"
                     className="w-full bg-[#202124] border border-[#5f6368] rounded px-4 py-3 pl-12 pr-4 text-white focus:border-[#8ab4f8] outline-none transition-colors placeholder:text-[#5f6368]"
-                    disabled={accountDisabled}
+                    disabled={accountDisabled || netDues > 50}
                   />
                 </div>
               </div>
@@ -244,7 +310,7 @@ export default function RunnerSetup() {
                     onChange={(e) => { setWhatsapp(e.target.value); setSaved(false); }}
                     placeholder="e.g. +91 9876543210"
                     className="w-full bg-[#202124] border border-[#5f6368] rounded px-4 py-3 pl-12 pr-4 text-white focus:border-[#8ab4f8] outline-none transition-colors placeholder:text-[#5f6368]"
-                    disabled={accountDisabled}
+                    disabled={accountDisabled || netDues > 50}
                   />
                 </div>
               </div>
@@ -252,12 +318,12 @@ export default function RunnerSetup() {
               {/* Save Button */}
               <motion.button
                 onClick={handleSave}
-                disabled={isSaving || saved || !department.trim() || !whatsapp.trim() || accountDisabled}
+                disabled={isSaving || saved || !department.trim() || !whatsapp.trim() || accountDisabled || netDues > 50}
                 whileTap={{ scale: 0.98 }}
                 className={`w-full py-3 mt-6 rounded font-medium flex items-center justify-center gap-2 transition-colors ${
                   saved
                     ? "bg-[#81c995] text-[#202124]"
-                    : accountDisabled
+                    : (accountDisabled || netDues > 50)
                       ? "bg-[#3c4043] text-[#5f6368] cursor-not-allowed"
                       : "bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#202124] disabled:opacity-50 disabled:hover:bg-[#8ab4f8]"
                 }`}

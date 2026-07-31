@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { total_pages, total_cost, file_metadata, delivery_location } = body;
+    const { total_pages, total_cost, file_metadata, delivery_location, print_specs } = body;
 
     if (!total_pages || !total_cost || !delivery_location) {
       return NextResponse.json({ error: "Missing required fields including delivery_location" }, { status: 400 });
@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
         delivery_location: delivery_location,
         pickup_code: otp,
         college_domain: buyerDomain,
+        print_specs: print_specs || null,
       })
       .select()
       .single();

@@ -55,7 +55,32 @@ export default function Dashboard() {
   const [userAvgRating, setUserAvgRating] = useState(0);
   const [userTotalRatings, setUserTotalRatings] = useState(0);
   const [netDuesForRunner, setNetDuesForRunner] = useState(0);
+  const [runnersOnline, setRunnersOnline] = useState<number | null>(null);
   const router = useRouter();
+
+  // Poll live runners count every 5 seconds when in buyer mode
+  useEffect(() => {
+    if (mode !== 'buyer' || !session?.user?.email) {
+      setRunnersOnline(null);
+      return;
+    }
+
+    const fetchRunners = async () => {
+      try {
+        const res = await fetch('/api/runners-online');
+        if (res.ok) {
+          const data = await res.json();
+          setRunnersOnline(data.count ?? 0);
+        }
+      } catch {
+        // Silent fail
+      }
+    };
+
+    fetchRunners();
+    const interval = setInterval(fetchRunners, 5_000);
+    return () => clearInterval(interval);
+  }, [mode, session?.user?.email]);
 
   // Fetch profile data on mount (strikes, rating, dues)
   useEffect(() => {
@@ -74,10 +99,16 @@ export default function Dashboard() {
         if (profileJson.profile) {
           const dues = Number(profileJson.profile.dues) || 0;
           const bonus = Number(profileJson.profile.bonus) || 25;
-          setNetDuesForRunner(Math.max(0, dues - bonus));
+          const netDues = Math.max(0, dues - bonus);
+          setNetDuesForRunner(netDues);
+          
+          const isDisabled = strikeJson.account_disabled || netDues > 50;
+          setAccountDisabled(isDisabled);
+          if (isDisabled) {
+            setMode('profile');
+          }
         }
         setStrikeCount(strikeJson.strike_count || 0);
-        setAccountDisabled(strikeJson.account_disabled || false);
         setUserAvgRating(ratingJson.avg_rating || 0);
         setUserTotalRatings(ratingJson.total_ratings || 0);
       } catch (err) {
@@ -85,6 +116,34 @@ export default function Dashboard() {
       }
     };
     fetchProfileData();
+  }, [session?.user?.email]);
+
+  // ===== PRESENCE HEARTBEAT =====
+  // Sends a lightweight POST /api/heartbeat every 15 seconds to stamp last_seen_at
+  // This powers the real-time "runners online" count for buyers
+  useEffect(() => {
+    if (!session?.user?.email) return;
+
+    const sendHeartbeat = () => {
+      fetch('/api/heartbeat', { method: 'POST' }).catch(() => {});
+    };
+
+    // Fire immediately on mount
+    sendHeartbeat();
+
+    // Then every 15 seconds
+    const interval = setInterval(sendHeartbeat, 15_000);
+
+    // Pause when tab is hidden, resume + immediate beat when visible
+    const handleVisibility = () => {
+      if (!document.hidden) sendHeartbeat();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [session?.user?.email]);
 
   // Notification system
@@ -189,10 +248,16 @@ export default function Dashboard() {
 
   // Wrap setMode to clear dots when switching tabs
   const handleModeSwitch = useCallback((newMode: "buyer" | "runner" | "profile") => {
+    // Enforce account block
+    if (newMode !== 'profile' && (accountDisabled || netDuesForRunner > 50)) {
+      alert("Please go to profile and settle your account to continue.");
+      return;
+    }
+
     setMode(newMode);
     if (newMode === 'runner') setTabDots(prev => ({ ...prev, runner: false }));
     if (newMode === 'buyer') setTabDots(prev => ({ ...prev, buyer: false }));
-  }, []);
+  }, [accountDisabled, netDuesForRunner]);
 
   // Wrap setRunnerTab to clear sub-tab dots
   const handleRunnerTabSwitch = useCallback((tab: "dashboard" | "jobs" | "orders" | "pricing" | "wallet") => {
@@ -486,7 +551,7 @@ export default function Dashboard() {
     };
   }, [orderState]);
 
-  const handleOrderSubmit = async (files: any[], totalPages: number, totalCost: number, deliveryLocation: string) => {
+  const handleOrderSubmit = async (files: any[], totalPages: number, totalCost: number, deliveryLocation: string, printSpecs?: { sides: string; finishing: string; additionalRequests: string }) => {
     try {
       if (status !== "authenticated" || !session?.user) {
         router.push("/auth/signin");
@@ -593,9 +658,11 @@ export default function Dashboard() {
           total_pages: totalPages,
           total_cost: totalCost,
           file_metadata: fileMetadata,
-          delivery_location: deliveryLocation
+          delivery_location: deliveryLocation,
+          print_specs: printSpecs || null,
         }),
       });
+
 
       const result = await res.json();
 
@@ -839,7 +906,23 @@ export default function Dashboard() {
               <div className="flex justify-between items-end border-b border-[#3c4043] pb-4">
                 <div>
                   <h1 className="text-2xl font-medium text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'}</h1>
-                  <p className="text-[#9aa0a6] text-sm mt-1">Need something printed today?</p>
+                  <div className="flex items-center gap-3 mt-1">
+                    <p className="text-[#9aa0a6] text-sm">Need something printed today?</p>
+                    {runnersOnline !== null && (
+                      <div className="flex items-center gap-1.5">
+                        <span className="relative flex h-2 w-2">
+                          <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${runnersOnline > 0 ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
+                          <span className={`relative inline-flex rounded-full h-2 w-2 ${runnersOnline > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+                        </span>
+                        <span className={`text-xs font-medium ${runnersOnline > 0 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                          {runnersOnline > 0 
+                            ? <>{runnersOnline} online</>
+                            : 'No runners online'
+                          }
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {orderState === 'idle' && buyerTab === 'dashboard' && (
                   <button 
@@ -976,6 +1059,26 @@ export default function Dashboard() {
                               </div>
                             ))}
                           </div>
+
+                          {/* Print Specifications */}
+                          {trackingOrder.print_specs && (
+                            <div className="mt-4">
+                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Print Specs</p>
+                              <div className="flex flex-wrap gap-2 mb-2">
+                                <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                                  {trackingOrder.print_specs.sides === 'double' ? '📄 Double-Sided' : '📄 Single-Sided'}
+                                </span>
+                                <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                                  {trackingOrder.print_specs.finishing === 'stapled' ? '📎 Stapled' : '📃 Loose Sheets'}
+                                </span>
+                              </div>
+                              {trackingOrder.print_specs.additionalRequests && (
+                                <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-3 py-2">
+                                  💬 {trackingOrder.print_specs.additionalRequests}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </motion.div>
                       {trackingOrder.status === 'delivered' && session?.user?.email && (
@@ -1043,9 +1146,11 @@ export default function Dashboard() {
                      <h2 className="text-xl font-medium text-white">Pagen File Manager</h2>
                    </div>
                    
-                   <UploadManager onContinue={(files, totalPages, totalCost, deliveryLocation) => {
-                     handleOrderSubmit(files, totalPages, totalCost, deliveryLocation);
-                   }} />
+                   <UploadManager 
+                     runnersOnline={runnersOnline}
+                     onContinue={(files, totalPages, totalCost, deliveryLocation, printSpecs) => {
+                       handleOrderSubmit(files, totalPages, totalCost, deliveryLocation, printSpecs);
+                     }} />
                 </motion.div>
               ) : orderState === 'finding' ? (
                 <motion.div 
@@ -1067,6 +1172,16 @@ export default function Dashboard() {
                     <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Documents</p>
                     <p className="text-white font-medium">{currentOrder?.page_count || 0} Pages • {currentOrder?.file_metadata?.length || 0} Files</p>
                     <p className="text-[#9aa0a6] text-xs mt-2">Deliver to: {currentOrder?.delivery_location || 'Campus'}</p>
+                    {currentOrder?.print_specs && (
+                      <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-[#3c4043]">
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                          {currentOrder.print_specs.sides === 'double' ? 'Double-Sided' : 'Single-Sided'}
+                        </span>
+                        <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                          {currentOrder.print_specs.finishing === 'stapled' ? 'Stapled' : 'Loose Sheets'}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <button 
@@ -1276,8 +1391,11 @@ export default function Dashboard() {
                           </div>
                         </div>
                         {hasDues ? (
-                          <button className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-xl hover:bg-[#ffe599] transition-colors">
-                            Clear Dues {'\u2014'} Pay {'\u20B9'}{netDues}
+                          <button 
+                            onClick={() => handleModeSwitch("profile")}
+                            className="w-full mt-3 bg-[#3c4043] text-white font-bold py-3 rounded-xl hover:bg-[#5f6368] transition-colors border border-[#fde293]/30"
+                          >
+                            Go to Profile to clear dues
                           </button>
                         ) : (
                           <div className="mt-3 bg-[#81c995]/10 border border-[#81c995]/30 rounded-lg p-3 text-center">
@@ -1400,6 +1518,25 @@ export default function Dashboard() {
                                  </div>
                                ))}
                              </div>
+
+                             {/* Print Specifications */}
+                             {order.print_specs && (
+                               <div className="w-full mt-2 border-t border-[#3c4043] pt-2 space-y-1">
+                                 <div className="flex flex-wrap gap-2">
+                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                                     {order.print_specs.sides === 'double' ? 'Double-Sided' : 'Single-Sided'}
+                                   </span>
+                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                                     {order.print_specs.finishing === 'stapled' ? 'Stapled' : 'Loose Sheets'}
+                                   </span>
+                                 </div>
+                                 {order.print_specs.additionalRequests && (
+                                   <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-2.5 py-1.5 mt-1">
+                                     💬 {order.print_specs.additionalRequests}
+                                   </p>
+                                 )}
+                               </div>
+                             )}
                              
                              <div className="w-full mt-4 flex items-center gap-3">
                                <button 
@@ -1997,38 +2134,27 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
             </div>
           ))}
         </div>
-      </div>
 
-      {/* Buyer Confirm Delivery — Defense against Runner Runaway */}
-      {!canCancelFree && (
-        <div className="mb-4">
-          <p className="text-[#9aa0a6] text-xs mb-2 text-center">Already received your printout?</p>
-          <button
-            onClick={async () => {
-              if (!confirm("Confirm you received your printout? This will close the order and cannot be undone.")) return;
-              try {
-                const res = await fetch("/api/orders/confirm-delivery", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ order_id: order.id }),
-                });
-                if (res.ok) {
-                  alert("✅ Delivery confirmed! Order closed.");
-                  window.location.reload();
-                } else {
-                  const err = await res.json();
-                  alert(`Error: ${err.error}`);
-                }
-              } catch (e) {
-                alert("Failed to confirm delivery. Please try again.");
-              }
-            }}
-            className="w-full flex items-center justify-center gap-2 bg-[#81c995] hover:bg-[#6ab882] text-[#202124] font-bold py-3 rounded-lg transition-colors text-sm"
-          >
-            <CheckCircle2 size={18} /> I Received My Printout
-          </button>
-        </div>
-      )}
+        {/* Print Specifications */}
+        {order?.print_specs && (
+          <div className="mt-4">
+            <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Print Specs</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                {order.print_specs.sides === 'double' ? '📄 Double-Sided' : '📄 Single-Sided'}
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                {order.print_specs.finishing === 'stapled' ? '📎 Stapled' : '📃 Loose Sheets'}
+              </span>
+            </div>
+            {order.print_specs.additionalRequests && (
+              <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-3 py-2">
+                💬 {order.print_specs.additionalRequests}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* Cancel Button with Timer */}
       {canCancelFree && (
@@ -2198,6 +2324,25 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
         ))}
       </div>
 
+      {/* Print Specifications */}
+      {order.print_specs && (
+        <div className="w-full mt-3 border-t border-[#3c4043] pt-3">
+          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Print Specs</p>
+          <div className="flex flex-wrap gap-2 mb-2">
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+              {order.print_specs.sides === 'double' ? 'Double-Sided' : 'Single-Sided'}
+            </span>
+            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+              {order.print_specs.finishing === 'stapled' ? 'Stapled' : 'Loose Sheets'}
+            </span>
+          </div>
+          {order.print_specs.additionalRequests && (
+            <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-2.5 py-1.5">
+              💬 {order.print_specs.additionalRequests}
+            </p>
+          )}
+        </div>
+      )}
       {/* Status Actions */}
       <div className="w-full mt-4 space-y-2">
         {order.status === 'accepted' && (

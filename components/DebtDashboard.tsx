@@ -23,9 +23,8 @@ interface Transaction {
   note: string;
 }
 
-export default function DebtDashboard({ balance = -45 }: { balance?: number }) {
-  const [showRepay, setShowRepay] = useState(false);
-  
+export default function DebtDashboard({ balance = -45, onGoToProfile }: { balance?: number, onGoToProfile?: () => void }) {
+
   // Mock transaction history
   const transactions: Transaction[] = [
     { id: '1', type: 'deduction', amount: 8, date: '2026-04-29T14:30:00Z', status: 'completed', note: 'Platform Fee (EE-302 Lab Manual)' },
@@ -79,10 +78,10 @@ export default function DebtDashboard({ balance = -45 }: { balance?: number }) {
             <div className="flex gap-3">
               {isDues && (
                 <button 
-                  onClick={() => setShowRepay(true)}
-                  className="px-6 py-3 rounded-2xl bg-[#fde293] text-[#202124] font-bold text-sm hover:scale-105 active:scale-95 transition-all shadow-[0_0_20px_rgba(253,226,147,0.3)]"
+                  onClick={onGoToProfile}
+                  className="px-6 py-3 rounded-2xl bg-[#3c4043] text-white font-bold text-sm hover:bg-[#5f6368] transition-all border border-[#fde293]/30"
                 >
-                  Clear Dues Now
+                  Go to Profile to clear dues
                 </button>
               )}
               <button className="px-6 py-3 rounded-2xl bg-white/5 border border-white/10 text-white font-bold text-sm hover:bg-white/10 transition-all">
@@ -150,58 +149,6 @@ export default function DebtDashboard({ balance = -45 }: { balance?: number }) {
         </div>
       </div>
 
-      {/* Repay Modal */}
-      <AnimatePresence>
-        {showRepay && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-xl p-4"
-          >
-            <motion.div 
-              initial={{ scale: 0.9, y: 20 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.9, y: 20 }}
-              className="bg-[#292a2d] border border-[#3c4043] rounded-3xl p-8 max-w-sm w-full text-center relative overflow-hidden shadow-2xl"
-            >
-              <button 
-                onClick={() => setShowRepay(false)}
-                className="absolute top-4 right-4 p-2 text-[#9aa0a6] hover:text-white transition-colors"
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-              </button>
-
-              <div className="w-16 h-16 bg-[#fde293]/10 border border-[#fde293]/20 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <QrCode size={32} className="text-[#fde293]" />
-              </div>
-
-              <h2 className="text-2xl font-bold text-white mb-2">Clear Dues</h2>
-              <p className="text-sm text-[#9aa0a6] mb-8">Scan the Pagen Admin QR to clear your outstanding dues of ₹{absBalance}.</p>
-
-              {/* Admin QR Code (Mock) */}
-              <div className="bg-white p-4 rounded-2xl mb-8 inline-block shadow-[0_0_30px_rgba(255,255,255,0.1)]">
-                <div className="w-48 h-48 bg-[#202124] flex items-center justify-center text-[#9aa0a6] font-mono text-xs rounded-lg">
-                   [ADMIN_UPI_QR_CODE]
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-3">
-                <button 
-                  onClick={() => setShowRepay(false)}
-                  className="w-full py-4 rounded-2xl bg-[#8ab4f8] text-[#202124] font-bold shadow-[0_0_20px_rgba(138,180,248,0.2)]"
-                >
-                  I've Paid the Dues
-                </button>
-                <p className="text-[10px] text-[#9aa0a6] uppercase font-bold tracking-widest flex items-center justify-center gap-2">
-                  <AlertCircle size={12} />
-                  Verification takes 5-10 minutes
-                </p>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
