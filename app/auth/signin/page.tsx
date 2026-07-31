@@ -3,7 +3,8 @@
 import { signIn } from "next-auth/react";
 import { motion } from "framer-motion";
 import { Shield, Printer } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 
 // Floating Particles Component
 const FloatingParticles = () => {
@@ -50,9 +51,7 @@ const FloatingParticles = () => {
   );
 };
 
-import { useSearchParams } from "next/navigation";
-
-export default function SignInPage() {
+function SignInContent() {
   const [isLoading, setIsLoading] = useState(false);
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") || "/dashboard";
@@ -110,5 +109,17 @@ export default function SignInPage() {
         </div>
       </motion.div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin" />
+      </div>
+    }>
+      <SignInContent />
+    </Suspense>
   );
 }

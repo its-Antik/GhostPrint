@@ -412,6 +412,35 @@ export async function PATCH(req: NextRequest) {
           "order",
           { order_id: data.id, action: "prints_ready" }
         );
+      } else if (updates.arrived_at && buyerEmail) {
+        // Notify buyer: "Runner has arrived at location!"
+        await insertNotification(
+          buyerEmail,
+          "🚨 Runner has arrived!",
+          `${runnerName} is at ${data.delivery_location || 'your location'}. Share your OTP to collect your prints!`,
+          "order",
+          { order_id: data.id, action: "runner_arrived" }
+        );
+        // Web Push for arrival
+        try {
+          const { data: buyerProfile } = await supabaseAdmin
+            .from('profiles')
+            .select('push_subscription')
+            .eq('username', buyerEmail)
+            .single();
+          if (buyerProfile?.push_subscription) {
+            await webPush.sendNotification(
+              buyerProfile.push_subscription,
+              JSON.stringify({
+                title: "🚨 Runner has arrived!",
+                body: `${runnerName} is at ${data.delivery_location || 'your location'}. Share your OTP!`,
+                data: { url: "/dashboard" },
+              })
+            ).catch((e: any) => console.error("Push arrival notification failed:", e.statusCode || e.message));
+          }
+        } catch (pushErr) {
+          console.error("Arrival push error:", pushErr);
+        }
       } else if (updates.status === 'delivered') {
         // Notify buyer: "Delivered!"
         if (buyerEmail) {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
-import { User, ShoppingBag, Truck, BarChart3, Settings, CheckCircle2, ShieldCheck, Info, Search, MapPin, Zap, Star, Eye, X, Check, AlertTriangle, Flag, Download, FileText, ChevronDown, ChevronUp } from "lucide-react";
+import { User, ShoppingBag, Truck, BarChart3, Settings, CheckCircle2, ShieldCheck, Info, Search, MapPin, Zap, Star, Eye, X, Check, AlertTriangle, Flag, Download, FileText, ChevronDown, ChevronUp, Bell, BellOff, Clock, Navigation } from "lucide-react";
 import Onboarding from "@/components/Onboarding";
 import RunnerSetup from "@/components/RunnerSetup";
 import RateCard from "@/components/RateCard";
@@ -924,14 +924,17 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-                {orderState === 'idle' && buyerTab === 'dashboard' && (
-                  <button 
-                    onClick={() => setOrderState('upload')}
-                    className="bg-[#8ab4f8] text-[#202124] px-4 py-2 rounded-md font-medium hover:bg-[#aecbfa] transition-colors"
-                  >
-                    + New Print Request
-                  </button>
-                )}
+                <div className="flex items-center gap-3">
+                  <BuyerPushToggle />
+                  {orderState === 'idle' && buyerTab === 'dashboard' && (
+                    <button 
+                      onClick={() => setOrderState('upload')}
+                      className="bg-[#8ab4f8] text-[#202124] px-4 py-2 rounded-md font-medium hover:bg-[#aecbfa] transition-colors"
+                    >
+                      + New Print Request
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* BUYER SUB-TABS — always visible */}
@@ -992,95 +995,7 @@ export default function Dashboard() {
                     </>
                   ) : ['printing', 'ready', 'delivered'].includes(trackingOrder.status) ? (
                     <>
-                      <motion.div 
-                        initial={{ opacity: 0, scale: 0.95 }} 
-                        animate={{ opacity: 1, scale: 1 }} 
-                        className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
-                      >
-                        <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
-                          {trackingOrder.status === 'printing' && (
-                            <>
-                              <div className="absolute inset-0 border-4 border-[#fde293]/20 rounded-full"></div>
-                              <div className="absolute inset-0 border-4 border-[#fde293] rounded-full border-t-transparent animate-spin"></div>
-                              <Zap size={32} className="text-[#fde293] animate-pulse" />
-                            </>
-                          )}
-                          {trackingOrder.status === 'ready' && (
-                            <>
-                              <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
-                              <CheckCircle2 size={32} className="text-[#81c995]" />
-                            </>
-                          )}
-                          {trackingOrder.status === 'delivered' && (
-                            <>
-                              <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
-                              <Star size={32} className="text-[#81c995]" />
-                            </>
-                          )}
-                        </div>
-                        <h3 className="text-2xl font-medium text-white mb-2">
-                          {trackingOrder.status === 'printing' ? 'Printing your documents...' : trackingOrder.status === 'ready' ? 'Ready for Pickup!' : 'Job Delivered!'}
-                        </h3>
-                        <p className="text-[#9aa0a6] mb-6">
-                          {trackingOrder.status === 'printing' ? 'Your runner is currently printing the files.' : trackingOrder.status === 'ready' ? 'Meet the runner and share your OTP to collect.' : 'Thank you for using Pagen!'}
-                        </p>
-                        <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
-                          <div className="flex justify-between items-start mb-6">
-                            <div>
-                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
-                              <p className="text-lg font-medium text-white">{trackingOrder.runner_id?.split('@')[0] || 'Runner'}</p>
-                            </div>
-                            <div className="text-right">
-                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
-                              <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
-                            </div>
-                          </div>
-                          <div className="bg-[#fde293]/10 border border-[#fde293]/30 rounded-lg px-4 py-2.5 mb-6 flex items-start gap-2">
-                            <Info size={14} className="text-[#fde293] mt-0.5 shrink-0" />
-                            <p className="text-[#fde293]/90 text-xs leading-relaxed">
-                              <strong>Safety Tip:</strong> It is recommended to share the pickup OTP only after you have received your printouts and verified them.
-                            </p>
-                          </div>
-                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Delivery Location</p>
-                          <p className="text-white mb-6 bg-[#3c4043] inline-block px-3 py-1 rounded text-sm">{trackingOrder.delivery_location || 'Campus'}</p>
-                          <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
-                          <div className="space-y-3">
-                            {trackingOrder.file_metadata?.map((file: any, i: number) => (
-                              <div key={i} className="flex justify-between items-center bg-[#292a2d] p-3 rounded border border-[#3c4043]">
-                                <div>
-                                  <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
-                                  <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>
-                                </div>
-                                {file.url && (
-                                  <button onClick={() => window.open(file.url, '_blank')} className="text-[#8ab4f8] hover:text-[#aecbfa] text-sm font-medium flex items-center gap-1">
-                                    <Eye size={14} /> View
-                                  </button>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Print Specifications */}
-                          {trackingOrder.print_specs && (
-                            <div className="mt-4">
-                              <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Print Specs</p>
-                              <div className="flex flex-wrap gap-2 mb-2">
-                                <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
-                                  {trackingOrder.print_specs.sides === 'double' ? '📄 Double-Sided' : '📄 Single-Sided'}
-                                </span>
-                                <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
-                                  {trackingOrder.print_specs.finishing === 'stapled' ? '📎 Stapled' : '📃 Loose Sheets'}
-                                </span>
-                              </div>
-                              {trackingOrder.print_specs.additionalRequests && (
-                                <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-3 py-2">
-                                  💬 {trackingOrder.print_specs.additionalRequests}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      </motion.div>
+                      <BuyerTrackingView trackingOrder={trackingOrder} />
                       {trackingOrder.status === 'delivered' && session?.user?.email && (
                         <RatingAndReportWidget
                           orderId={trackingOrder.id}
@@ -2068,6 +1983,10 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
             )}
           </div>
           <p className="text-[#9aa0a6] text-sm">Your runner is preparing to print your documents.</p>
+           <div className="flex items-center gap-1.5 mt-1">
+             <Clock size={12} className="text-[#8ab4f8]" />
+             <span className="text-[#8ab4f8] text-xs font-medium">Estimated delivery: 20–30 min</span>
+           </div>
         </div>
       </div>
 
@@ -2102,6 +2021,12 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
           </div>
         </div>
         <p className="text-[#9aa0a6]/60 text-[11px] mt-3 italic text-center">🔒 Prepaid deliveries will be made available soon.</p>
+         <div className="mt-4 bg-[#8ab4f8]/5 border border-[#8ab4f8]/20 rounded-lg px-4 py-2.5 flex items-start gap-2">
+           <Zap size={14} className="text-[#8ab4f8] mt-0.5 shrink-0" />
+           <p className="text-[#8ab4f8]/80 text-[11px] leading-relaxed">
+             <strong>Coming Soon:</strong> Custom delivery timings and express fast delivery options will be available in an upcoming update. For now, all deliveries are estimated at 20–30 minutes.
+           </p>
+         </div>
       </div>
 
       {/* Order Details */}
@@ -2343,6 +2268,21 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
           )}
         </div>
       )}
+
+      {/* Estimated Delivery Time */}
+      <div className="w-full mt-3 flex items-center gap-2 text-xs text-[#9aa0a6]">
+        <Clock size={12} className="text-[#8ab4f8]" />
+        <span>Estimated delivery: <strong className="text-[#8ab4f8]">20–30 min</strong></span>
+      </div>
+
+      {/* Coming soon: Custom timings */}
+      <div className="w-full mt-2 bg-[#8ab4f8]/5 border border-[#8ab4f8]/15 rounded px-3 py-2 flex items-start gap-1.5">
+        <Zap size={10} className="text-[#8ab4f8] mt-0.5 shrink-0" />
+        <p className="text-[#8ab4f8]/70 text-[10px] leading-relaxed">
+          <strong>Coming Soon:</strong> Custom delivery timings and express fast delivery will be available in an upcoming update.
+        </p>
+      </div>
+
       {/* Status Actions */}
       <div className="w-full mt-4 space-y-2">
         {order.status === 'accepted' && (
@@ -2362,12 +2302,7 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
           </button>
         )}
         {order.status === 'ready' && (
-          <button
-            onClick={() => onHandshake(order)}
-            className="bg-[#81c995] text-[#202124] w-full py-2.5 rounded-md font-bold text-sm hover:bg-[#92dab6] transition-colors shadow-lg"
-          >
-            🤝 Complete Handshake — Collect ₹{runnerCharge}
-          </button>
+          <RunnerArrivedAndHandshake order={order} onUpdateStatus={onUpdateStatus} onHandshake={onHandshake} runnerCharge={runnerCharge} />
         )}
 
         {/* Free cancel during 45s window */}
@@ -2857,6 +2792,347 @@ function OrderDetailCard({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+// BuyerPushToggle — compact push notification toggle for buyer dashboard header
+function BuyerPushToggle() {
+  const [isSupported, setIsSupported] = useState(false);
+  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setIsSupported(true);
+      navigator.serviceWorker.ready.then(async (reg) => {
+        const sub = await reg.pushManager.getSubscription();
+        setSubscription(sub);
+      }).catch(() => {});
+    }
+  }, []);
+
+  const toggle = async () => {
+    if (subscription) {
+      // Unsubscribe
+      await subscription.unsubscribe();
+      setSubscription(null);
+      await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: null }) });
+      await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notifications_enabled: false }) });
+    } else {
+      // Subscribe
+      setIsSubscribing(true);
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY });
+        setSubscription(sub);
+        await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub }) });
+        await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notifications_enabled: true }) });
+      } catch (err) {
+        console.error('Push subscribe failed:', err);
+      } finally {
+        setIsSubscribing(false);
+      }
+    }
+  };
+
+  if (!isSupported) return null;
+
+  return (
+    <button
+      onClick={toggle}
+      disabled={isSubscribing}
+      title={subscription ? 'Notifications enabled – click to disable' : 'Enable push notifications'}
+      className={`relative p-2 rounded-lg border transition-all ${
+        subscription 
+          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' 
+          : 'bg-[#292a2d] border-[#3c4043] text-[#9aa0a6] hover:text-white hover:border-[#5f6368]'
+      }`}
+    >
+      {isSubscribing ? (
+        <div className="w-4 h-4 border-2 border-current/30 border-t-current rounded-full animate-spin" />
+      ) : subscription ? (
+        <Bell size={16} />
+      ) : (
+        <BellOff size={16} />
+      )}
+      {subscription && (
+        <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+        </span>
+      )}
+    </button>
+  );
+}
+
+// BuyerTrackingView — buyer order tracking with Supabase realtime arrival alert (faaah.mp3 + vibrate)
+function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
+  const [hasArrived, setHasArrived] = useState(!!trackingOrder?.arrived_at);
+  const [arrivalPlayed, setArrivalPlayed] = useState(false);
+
+  // Check initial arrived state
+  useEffect(() => {
+    if (trackingOrder?.arrived_at) {
+      setHasArrived(true);
+    }
+  }, [trackingOrder?.arrived_at]);
+
+  // Listen for real-time arrival via Supabase
+  useEffect(() => {
+    if (!trackingOrder?.id) return;
+    
+    const channel = supabase
+      .channel(`arrival_${trackingOrder.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${trackingOrder.id}`,
+        },
+        (payload: any) => {
+          if (payload.new.arrived_at && !arrivalPlayed) {
+            setHasArrived(true);
+            setArrivalPlayed(true);
+            
+            // Play the FAAAH sound at full volume
+            try {
+              const sound = new Audio('/faaah.mp3');
+              sound.volume = 1.0;
+              sound.play().catch((err) => console.log('Autoplay blocked:', err));
+            } catch (e) {
+              console.error('Audio play error:', e);
+            }
+            
+            // Vibrate phone alongside sound
+            if ('vibrate' in navigator) {
+              navigator.vibrate([300, 100, 300, 100, 500]);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      channel.unsubscribe();
+      supabase.removeChannel(channel);
+    };
+  }, [trackingOrder?.id, arrivalPlayed]);
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.95 }} 
+      animate={{ opacity: 1, scale: 1 }} 
+      className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
+    >
+      <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
+        {trackingOrder.status === 'printing' && (
+          <>
+            <div className="absolute inset-0 border-4 border-[#fde293]/20 rounded-full"></div>
+            <div className="absolute inset-0 border-4 border-[#fde293] rounded-full border-t-transparent animate-spin"></div>
+            <Zap size={32} className="text-[#fde293] animate-pulse" />
+          </>
+        )}
+        {trackingOrder.status === 'ready' && !hasArrived && (
+          <>
+            <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
+            <CheckCircle2 size={32} className="text-[#81c995]" />
+          </>
+        )}
+        {trackingOrder.status === 'ready' && hasArrived && (
+          <>
+            <div className="absolute inset-0 border-4 border-[#8ab4f8] rounded-full animate-pulse"></div>
+            <Navigation size={32} className="text-[#8ab4f8]" />
+          </>
+        )}
+        {trackingOrder.status === 'delivered' && (
+          <>
+            <div className="absolute inset-0 border-4 border-[#81c995] rounded-full"></div>
+            <Star size={32} className="text-[#81c995]" />
+          </>
+        )}
+      </div>
+      <h3 className="text-2xl font-medium text-white mb-2">
+        {trackingOrder.status === 'printing' 
+          ? 'Printing your documents...' 
+          : trackingOrder.status === 'ready' && hasArrived 
+            ? '🚨 Runner has arrived!' 
+            : trackingOrder.status === 'ready' 
+              ? 'Ready for Pickup!' 
+              : 'Job Delivered!'}
+      </h3>
+      <p className="text-[#9aa0a6] mb-2">
+        {trackingOrder.status === 'printing' 
+          ? 'Your runner is currently printing the files.' 
+          : trackingOrder.status === 'ready' && hasArrived 
+            ? 'Your runner is at the delivery location. Share your OTP to collect your prints!'
+            : trackingOrder.status === 'ready' 
+              ? 'Meet the runner and share your OTP to collect.' 
+              : 'Thank you for using Pagen!'}
+      </p>
+
+      {/* Estimated delivery time */}
+      {trackingOrder.status !== 'delivered' && (
+        <div className="flex items-center gap-1.5 mb-4">
+          <Clock size={12} className="text-[#8ab4f8]" />
+          <span className="text-[#8ab4f8] text-xs font-medium">Estimated delivery: 20–30 min</span>
+        </div>
+      )}
+
+      {/* Runner arrived alert banner */}
+      {hasArrived && trackingOrder.status === 'ready' && (
+        <div className="w-full max-w-2xl bg-[#8ab4f8]/10 border-2 border-[#8ab4f8]/50 rounded-xl p-4 mb-4 animate-pulse">
+          <div className="flex items-center justify-center gap-2 text-[#8ab4f8]">
+            <Navigation size={18} />
+            <p className="font-bold text-sm">Runner is at your location — share the OTP!</p>
+          </div>
+        </div>
+      )}
+
+      <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
+            <p className="text-lg font-medium text-white">{trackingOrder.runner_id?.split('@')[0] || 'Runner'}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
+            <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
+          </div>
+        </div>
+        <div className="bg-[#fde293]/10 border border-[#fde293]/30 rounded-lg px-4 py-2.5 mb-6 flex items-start gap-2">
+          <Info size={14} className="text-[#fde293] mt-0.5 shrink-0" />
+          <p className="text-[#fde293]/90 text-xs leading-relaxed">
+            <strong>Safety Tip:</strong> It is recommended to share the pickup OTP only after you have received your printouts and verified them.
+          </p>
+        </div>
+        <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Delivery Location</p>
+        <p className="text-white mb-6 bg-[#3c4043] inline-block px-3 py-1 rounded text-sm">{trackingOrder.delivery_location || 'Campus'}</p>
+        <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
+        <div className="space-y-3">
+          {trackingOrder.file_metadata?.map((file: any, i: number) => (
+            <div key={i} className="flex justify-between items-center bg-[#292a2d] p-3 rounded border border-[#3c4043]">
+              <div>
+                <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
+                <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>
+              </div>
+              {file.url && (
+                <button onClick={() => window.open(file.url, '_blank')} className="text-[#8ab4f8] hover:text-[#aecbfa] text-sm font-medium flex items-center gap-1">
+                  <Eye size={14} /> View
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Print Specifications */}
+        {trackingOrder.print_specs && (
+          <div className="mt-4">
+            <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Print Specs</p>
+            <div className="flex flex-wrap gap-2 mb-2">
+              <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                {trackingOrder.print_specs.sides === 'double' ? '📄 Double-Sided' : '📄 Single-Sided'}
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                {trackingOrder.print_specs.finishing === 'stapled' ? '📎 Stapled' : '📃 Loose Sheets'}
+              </span>
+            </div>
+            {trackingOrder.print_specs.additionalRequests && (
+              <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-3 py-2">
+                💬 {trackingOrder.print_specs.additionalRequests}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Coming soon: custom timings */}
+        <div className="mt-4 bg-[#8ab4f8]/5 border border-[#8ab4f8]/20 rounded-lg px-4 py-2.5 flex items-start gap-2">
+          <Zap size={14} className="text-[#8ab4f8] mt-0.5 shrink-0" />
+          <p className="text-[#8ab4f8]/80 text-[11px] leading-relaxed">
+            <strong>Coming Soon:</strong> Custom delivery timings and express fast delivery options will be available in an upcoming update. For now, all deliveries are estimated at 20–30 minutes.
+          </p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// RunnerArrivedAndHandshake — "I Have Arrived" button gates the "Complete Handshake" button
+function RunnerArrivedAndHandshake({ order, onUpdateStatus, onHandshake, runnerCharge }: {
+  order: any;
+  onUpdateStatus: (id: string, status: string) => void;
+  onHandshake: (order: any) => void;
+  runnerCharge: number;
+}) {
+  const [hasArrived, setHasArrived] = useState(!!order.arrived_at);
+  const [isMarking, setIsMarking] = useState(false);
+
+  const handleMarkArrived = async () => {
+    setIsMarking(true);
+    try {
+      const res = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order_id: order.id, arrived_at: new Date().toISOString() }),
+      });
+      if (res.ok) {
+        setHasArrived(true);
+      } else {
+        const err = await res.json();
+        console.error('Failed to mark arrived:', err);
+      }
+    } catch (err) {
+      console.error('Mark arrived error:', err);
+    } finally {
+      setIsMarking(false);
+    }
+  };
+
+  return (
+    <div className="space-y-2">
+      {/* I Have Arrived button — above Complete Handshake */}
+      {!hasArrived ? (
+        <button
+          onClick={handleMarkArrived}
+          disabled={isMarking}
+          className="bg-[#8ab4f8] text-[#202124] w-full py-2.5 rounded-md font-bold text-sm hover:bg-[#aecbfa] transition-colors flex items-center justify-center gap-2"
+        >
+          {isMarking ? (
+            <div className="w-4 h-4 border-2 border-[#202124]/30 border-t-[#202124] rounded-full animate-spin" />
+          ) : (
+            <>
+              <Navigation size={16} />
+              I Have Arrived at the Location
+            </>
+          )}
+        </button>
+      ) : (
+        <div className="bg-[#8ab4f8]/10 border border-[#8ab4f8]/30 rounded-md py-2 text-center">
+          <p className="text-[#8ab4f8] text-xs font-bold flex items-center justify-center gap-1.5">
+            <Navigation size={12} /> Arrival confirmed — buyer has been notified
+          </p>
+        </div>
+      )}
+
+      {/* Complete Handshake — disabled until arrived */}
+      <button
+        onClick={() => onHandshake(order)}
+        disabled={!hasArrived}
+        className={`w-full py-2.5 rounded-md font-bold text-sm transition-colors shadow-lg ${
+          hasArrived 
+            ? 'bg-[#81c995] text-[#202124] hover:bg-[#92dab6] cursor-pointer' 
+            : 'bg-[#81c995]/30 text-[#202124]/50 cursor-not-allowed'
+        }`}
+      >
+        🤝 Complete Handshake — Collect ₹{runnerCharge}
+      </button>
+      {!hasArrived && (
+        <p className="text-[10px] text-[#9aa0a6] text-center italic">
+          You must confirm arrival before completing the handshake.
+        </p>
+      )}
     </div>
   );
 }
