@@ -362,12 +362,12 @@ export default function LandingPage() {
       </div>
 
       {/* Navigation Bar */}
-      <nav className="relative z-10 flex items-center justify-between px-8 py-6 max-w-7xl mx-auto border-b border-white/10 bg-black/60 backdrop-blur-sm">
+      <nav className="relative z-10 flex items-center justify-between px-4 sm:px-8 py-4 sm:py-6 max-w-7xl mx-auto border-b border-white/10 bg-black/60 backdrop-blur-sm">
         <div className="flex items-center gap-2">
-          <div className="w-20 h-20 rounded flex items-center justify-center overflow-hidden">
+          <div className="w-12 h-12 sm:w-20 sm:h-20 rounded flex items-center justify-center overflow-hidden shrink-0">
             <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover rounded-md" />
           </div>
-          <span className="text-xl font-bold tracking-tight">Pagen</span>
+          <span className="text-lg sm:text-xl font-bold tracking-tight">Pagen</span>
         </div>
         <div className="flex items-center gap-4 sm:gap-6 text-sm font-medium">
           <button onClick={() => setActiveModal("about")} className="hidden md:block text-gray-300 hover:text-white transition-colors">About Us</button>

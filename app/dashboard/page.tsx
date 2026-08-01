@@ -820,11 +820,11 @@ export default function Dashboard() {
       />
       
       {/* HEADER / NAVIGATION */}
-      <nav className="flex items-center justify-between px-8 py-4 border-b border-[#3c4043] bg-[#202124] sticky top-0 z-50">
-        <div className="flex items-center gap-6">
-          <Link href="/" className="flex items-center gap-2 text-[#9aa0a6] hover:text-white transition-colors bg-[#292a2d] hover:bg-[#3c4043] px-3 py-1.5 rounded-lg border border-[#3c4043] text-sm font-medium cursor-pointer">
+      <nav className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-[#3c4043] bg-[#202124] sticky top-0 z-50 gap-2 overflow-x-auto">
+        <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-2 text-[#9aa0a6] hover:text-white transition-colors bg-[#292a2d] hover:bg-[#3c4043] px-2 sm:px-3 py-1.5 rounded-lg border border-[#3c4043] text-sm font-medium cursor-pointer shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
-            Home
+            <span className="hidden sm:inline">Home</span>
           </Link>
           {(session?.user?.email === process.env.NEXT_PUBLIC_ADMIN_EMAIL || session?.user?.email === "antik13sarkar@gmail.com") && (
             <Link href="/admin" className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors bg-indigo-500/10 hover:bg-indigo-500/20 px-3 py-1.5 rounded-lg border border-indigo-500/30 text-sm font-medium cursor-pointer">
@@ -832,19 +832,19 @@ export default function Dashboard() {
               Admin
             </Link>
           )}
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded flex items-center justify-center overflow-hidden">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded flex items-center justify-center overflow-hidden shrink-0">
               <img src="/Logo.jpg?v=2" alt="Pagen" className="w-full h-full object-cover rounded-md" />
             </div>
-            <span className="font-bold tracking-tight">Pagen</span>
+            <span className="font-bold tracking-tight hidden sm:inline">Pagen</span>
           </div>
         </div>
 
         {/* THE MODE SWITCHER + BELL */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           <button 
             onClick={() => handleModeSwitch("buyer")}
-            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <ShoppingBag size={16} /> Buyer
             {tabDots.buyer && mode !== 'buyer' && (
@@ -858,7 +858,7 @@ export default function Dashboard() {
             onClick={() => {
               handleModeSwitch("runner");
             }}
-            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <Truck size={16} /> Runner
             {tabDots.runner && mode !== 'runner' && (
@@ -872,13 +872,13 @@ export default function Dashboard() {
             onClick={() => {
               handleModeSwitch("profile");
             }}
-            className={`relative px-4 py-2 rounded-md text-sm font-medium transition-colors flex items-center gap-2 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
+            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
           >
             <User size={16} /> Profile
           </button>
 
           {/* Notification Bell */}
-          <div className="ml-2 border-l border-[#3c4043] pl-3">
+          <div className="ml-1 sm:ml-2 border-l border-[#3c4043] pl-1.5 sm:pl-3">
             <NotificationBell
               unreadCount={unreadCount}
               notifications={notifList}
@@ -892,7 +892,7 @@ export default function Dashboard() {
       </nav>
 
       {/* MAIN CONTENT AREA */}
-      <main className="max-w-7xl mx-auto p-8">
+      <main className="max-w-7xl mx-auto px-3 py-4 sm:px-6 sm:py-6 lg:p-8">
         <AnimatePresence mode="wait">
           {mode === "buyer" ? (
             <motion.div 
@@ -903,7 +903,7 @@ export default function Dashboard() {
               className="space-y-8"
             >
               {/* BUYER VIEW: ORDER FORM & HISTORY */}
-              <div className="flex justify-between items-end border-b border-[#3c4043] pb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4 border-b border-[#3c4043] pb-4">
                 <div>
                   <h1 className="text-2xl font-medium text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'}</h1>
                   <div className="flex items-center gap-3 mt-1">
@@ -929,7 +929,7 @@ export default function Dashboard() {
                   {orderState === 'idle' && buyerTab === 'dashboard' && (
                     <button 
                       onClick={() => setOrderState('upload')}
-                      className="bg-[#8ab4f8] text-[#202124] px-4 py-2 rounded-md font-medium hover:bg-[#aecbfa] transition-colors"
+                      className="bg-[#8ab4f8] text-[#202124] px-3 sm:px-4 py-2 rounded-md font-medium hover:bg-[#aecbfa] transition-colors text-sm whitespace-nowrap"
                     >
                       + New Print Request
                     </button>
@@ -938,7 +938,7 @@ export default function Dashboard() {
               </div>
 
               {/* BUYER SUB-TABS — always visible */}
-              <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3 mb-6">
+              <div className="flex items-center gap-4 sm:gap-6 border-b border-[#3c4043] pb-3 mb-4 sm:mb-6 overflow-x-auto">
                 <button 
                   onClick={() => {
                     setBuyerTab("dashboard");
@@ -1019,7 +1019,7 @@ export default function Dashboard() {
                       )}
                     </>
                   ) : trackingOrder.status === 'cancelled' ? (
-                    <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center">
+                    <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-5 sm:p-8 lg:p-10 flex flex-col items-center justify-center text-center">
                       <div className="w-16 h-16 bg-[#ea4335]/20 rounded-full flex items-center justify-center mb-4 border border-[#ea4335]">
                         <X size={32} className="text-[#ea4335]" />
                       </div>
@@ -1076,7 +1076,7 @@ export default function Dashboard() {
                 <motion.div 
                   initial={{ opacity: 0, scale: 0.95 }} 
                   animate={{ opacity: 1, scale: 1 }} 
-                  className="bg-[#292a2d] border border-[#3c4043] rounded-xl p-10 flex flex-col items-center justify-center text-center"
+                  className="bg-[#292a2d] border border-[#3c4043] rounded-xl p-5 sm:p-8 lg:p-10 flex flex-col items-center justify-center text-center"
                 >
                   <div className="relative w-20 h-20 flex items-center justify-center mb-6">
                     <div className="absolute inset-0 border-4 border-[#8ab4f8]/20 rounded-full"></div>
@@ -1088,7 +1088,7 @@ export default function Dashboard() {
                   <p className="text-[#9aa0a6] max-w-sm mx-auto mb-4">Looking for available runners near your campus. This usually takes less than a minute.</p>
                   <p className="text-[#9aa0a6]/70 text-xs italic max-w-sm mx-auto mb-6">It is recommended to keep this page open until a runner accepts your order.</p>
 
-                  <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-4 w-full max-w-sm text-left mb-8">
+                  <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-4 w-full max-w-sm text-left mb-6 sm:mb-8">
                     <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Documents</p>
                     <p className="text-white font-medium">{currentOrder?.page_count || 0} Pages • {currentOrder?.file_metadata?.length || 0} Files</p>
                     <p className="text-[#9aa0a6] text-xs mt-2">Deliver to: {currentOrder?.delivery_location || 'Campus'}</p>
@@ -1118,7 +1118,7 @@ export default function Dashboard() {
                   </div>
                 </motion.div>
               ) : orderState === 'cancelled' ? (
-                <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(234,67,53,0.1)]">
+                <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-5 sm:p-8 lg:p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(234,67,53,0.1)]">
                   <div className="w-20 h-20 bg-[#ea4335]/20 rounded-full flex items-center justify-center mb-6 border border-[#ea4335]">
                     <X size={40} className="text-[#ea4335]" />
                   </div>
@@ -1132,7 +1132,7 @@ export default function Dashboard() {
                 <motion.div 
                   initial={{ opacity: 0, y: 10 }} 
                   animate={{ opacity: 1, y: 0 }}
-                  className="bg-[#292a2d] border border-[#8ab4f8]/30 rounded-xl p-10 flex flex-col items-center justify-center text-center"
+                  className="bg-[#292a2d] border border-[#8ab4f8]/30 rounded-xl p-5 sm:p-8 lg:p-10 flex flex-col items-center justify-center text-center"
                 >
                   <div className="w-16 h-16 bg-[#8ab4f8]/10 rounded-full flex items-center justify-center mb-4 border border-[#8ab4f8]/30">
                     <CheckCircle2 size={32} className="text-[#8ab4f8]" />
@@ -1161,7 +1161,7 @@ export default function Dashboard() {
               className="space-y-8"
             >
               {/* RUNNER SUB-TABS */}
-              <div className="flex items-center gap-6 border-b border-[#3c4043] pb-3">
+              <div className="flex items-center gap-3 sm:gap-4 lg:gap-6 border-b border-[#3c4043] pb-3 overflow-x-auto">
                 <button 
                   onClick={() => handleRunnerTabSwitch("dashboard")} 
                   className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
@@ -1210,13 +1210,13 @@ export default function Dashboard() {
               <div className="pt-4">
                 {runnerTab === "dashboard" && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
                       <StatCard label="Total Earnings" value={`₹${totalEarnings.toFixed(2)}`} color="text-emerald-400" />
                       <StatCard label="Trust Rating" value={jobsCompleted > 0 ? "5.0/5.0" : "New"} color="text-indigo-400" />
                       <StatCard label="Jobs Completed" value={jobsCompleted.toString()} color="text-cyan-400" />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                       <PushNotificationManager />
                       <div className="p-6 bg-[#292a2d] border border-[#3c4043] rounded-3xl flex flex-col justify-center">
                         <h3 className="text-lg font-bold text-white mb-2">Pagen Status</h3>
@@ -1237,10 +1237,10 @@ export default function Dashboard() {
                   const netDues = Math.max(0, runnerDues - runnerBonus);
                   const hasDues = netDues > 0;
                   return (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="max-w-4xl space-y-6">
-                    <div className="flex items-center justify-between mb-2">
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full space-y-4 sm:space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-2">
                       <h2 className="text-xl font-medium text-white">Runner Wallet</h2>
-                      <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-xl px-5 py-3">
+                      <div className="flex items-center gap-2 sm:gap-3 bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30 rounded-xl px-3 sm:px-5 py-2 sm:py-3">
                         <div className="w-9 h-9 rounded-full bg-gradient-to-br from-amber-400 to-yellow-500 flex items-center justify-center shadow-lg shadow-amber-500/20">
                           <Star size={18} className="text-[#202124]" />
                         </div>
@@ -1251,7 +1251,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 lg:gap-6">
                       <div className={`p-6 rounded-xl border transition-all flex flex-col justify-between ${
                         hasDues ? 'bg-[#292a2d] border-[#fde293]/50' : 'bg-[#292a2d] border-[#81c995]/50'
                       }`}>
@@ -1415,7 +1415,7 @@ export default function Dashboard() {
 
                           return (
                           <div key={order.id} className="p-5 bg-[#292a2d] border border-[#3c4043] rounded-lg flex flex-col hover:border-[#5f6368] transition-colors group">
-                             <div className="flex justify-between items-start">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3">
                                <div>
                                   <div className="flex items-center gap-2 mb-2">
                                     <span className="border border-[#3c4043] bg-[#202124] text-[#81c995] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">GIG</span>
@@ -1933,7 +1933,7 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
-      className="bg-[#292a2d] border border-[#81c995] rounded-xl p-8 text-left shadow-[0_0_40px_rgba(129,201,149,0.1)] relative"
+      className="bg-[#292a2d] border border-[#81c995] rounded-xl p-4 sm:p-6 lg:p-8 text-left shadow-[0_0_40px_rgba(129,201,149,0.1)] relative"
     >
       {/* Late cancel X button (always visible after timer) */}
       {!canCancelFree && (
@@ -1977,13 +1977,14 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
       )}
 
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className="w-14 h-14 bg-[#81c995]/20 rounded-full flex items-center justify-center border border-[#81c995]">
-          <CheckCircle2 size={28} className="text-[#81c995]" />
+      <div className="flex items-start gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="w-10 h-10 sm:w-14 sm:h-14 bg-[#81c995]/20 rounded-full flex items-center justify-center border border-[#81c995] shrink-0">
+          <CheckCircle2 size={24} className="text-[#81c995] sm:hidden" />
+          <CheckCircle2 size={28} className="text-[#81c995] hidden sm:block" />
         </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-xl font-medium text-white">Order Accepted by {runnerName}</h3>
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base sm:text-xl font-medium text-white">Order Accepted by {runnerName}</h3>
             {runnerRating.count > 0 && (
               <span className="flex items-center gap-1 bg-[#fde293]/10 border border-[#fde293]/30 px-2 py-0.5 rounded text-xs">
                 <Star size={12} className="text-[#fde293] fill-[#fde293]" />
@@ -1992,7 +1993,7 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
               </span>
             )}
           </div>
-          <p className="text-[#9aa0a6] text-sm">Your runner is preparing to print your documents.</p>
+          <p className="text-[#9aa0a6] text-xs sm:text-sm">Your runner is preparing to print your documents.</p>
            <div className="flex items-center gap-1.5 mt-1">
              <Clock size={12} className="text-[#8ab4f8]" />
              <span className="text-[#8ab4f8] text-xs font-medium">Estimated delivery: 20–30 min</span>
@@ -2001,9 +2002,9 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
       </div>
 
       {/* Payment Amount — Large & Prominent */}
-      <div className="bg-[#202124] border border-[#fde293]/30 rounded-xl p-6 mb-5">
+      <div className="bg-[#202124] border border-[#fde293]/30 rounded-xl p-4 sm:p-6 mb-5">
         <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Total Amount to Pay</p>
-        <p className="text-5xl font-bold text-[#fde293] mb-4">₹{totalPrice}</p>
+        <p className="text-3xl sm:text-5xl font-bold text-[#fde293] mb-4">₹{totalPrice}</p>
         
         {/* Payment Options */}
         <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Payment Method</p>
@@ -2040,7 +2041,7 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
       </div>
 
       {/* Order Details */}
-      <div className="grid grid-cols-2 gap-4 mb-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-5">
         <div className="bg-[#202124] border border-[#3c4043] rounded-lg p-4">
           <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
           <p className="text-white font-medium text-sm">{runnerName}</p>
@@ -2056,7 +2057,7 @@ function BuyerAcceptedView({ order, onCancel }: { order: any; onCancel: () => vo
         <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
         <div className="space-y-2">
           {order?.file_metadata?.map((file: any, i: number) => (
-            <div key={i} className="flex justify-between items-center bg-[#202124] p-3 rounded border border-[#3c4043]">
+            <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-[#202124] p-3 rounded border border-[#3c4043] gap-1 sm:gap-2">
               <div>
                 <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
                 <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>
@@ -2223,20 +2224,20 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
       )}
 
       {/* Header */}
-      <div className="flex justify-between items-start">
-        <div>
-          <div className="flex items-center gap-2 mb-2">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="border border-[#3c4043] bg-[#202124] text-[#81c995] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">
               {order.status === 'accepted' ? 'ACCEPTED' : order.status === 'printing' ? 'PRINTING' : 'READY'}
             </span>
             <span className="border border-[#3c4043] bg-[#202124] text-[#9aa0a6] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">{order.page_count} Pages</span>
           </div>
-          <h3 className="font-medium text-[#e8eaed] text-base">{order.file_metadata?.[0]?.name || "Document"} {order.file_metadata?.length > 1 && `(+${order.file_metadata.length - 1} more)`}</h3>
-          <p className="text-sm text-[#9aa0a6] mt-1">📍 {order.delivery_location || "Unknown Location"}</p>
+          <h3 className="font-medium text-[#e8eaed] text-sm sm:text-base truncate">{order.file_metadata?.[0]?.name || "Document"} {order.file_metadata?.length > 1 && `(+${order.file_metadata.length - 1} more)`}</h3>
+          <p className="text-xs sm:text-sm text-[#9aa0a6] mt-1">📍 {order.delivery_location || "Unknown Location"}</p>
         </div>
-        <div className="text-right">
+        <div className="sm:text-right shrink-0">
           <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">You Earn</p>
-          <p className={`text-xl font-bold ${netProfit > 0 ? 'text-[#81c995]' : 'text-[#fde293]'}`}>₹{netProfit}</p>
+          <p className={`text-lg sm:text-xl font-bold ${netProfit > 0 ? 'text-[#81c995]' : 'text-[#fde293]'}`}>₹{netProfit}</p>
           <p className="text-[10px] text-[#9aa0a6]">₹{runnerCharge} - ₹{baseCost} cost{platformFee > 0 ? ` - ₹${platformFee} fee` : ''}</p>
         </div>
       </div>
@@ -2245,7 +2246,7 @@ function RunnerActiveJob({ order, onUpdateStatus, onHandshake, onCancel }: {
       <div className="w-full mt-4 space-y-2 border-t border-[#3c4043] pt-4">
         <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-2">Documents to Print</p>
         {order.file_metadata?.map((file: any, i: number) => (
-          <div key={i} className="flex justify-between items-center text-sm bg-[#202124] p-3 rounded border border-[#3c4043]">
+          <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center text-sm bg-[#202124] p-3 rounded border border-[#3c4043] gap-1 sm:gap-2">
             <div>
               <p className="text-[#e8eaed] font-medium">{file.name}</p>
               <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>
@@ -3000,7 +3001,7 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
     <motion.div 
       initial={{ opacity: 0, scale: 0.95 }} 
       animate={{ opacity: 1, scale: 1 }} 
-      className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
+      className="bg-[#292a2d] border border-[#8ab4f8]/50 rounded-xl p-5 sm:p-8 lg:p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(138,180,248,0.1)]"
     >
       <div className="relative w-24 h-24 mb-6 flex items-center justify-center">
         {trackingOrder.status === 'printing' && (
@@ -3058,7 +3059,7 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
 
       {/* Runner arrived alert banner */}
       {hasArrived && trackingOrder.status === 'ready' && (
-        <div className="w-full max-w-2xl bg-[#8ab4f8]/10 border-2 border-[#8ab4f8]/50 rounded-xl p-4 mb-4 animate-pulse">
+        <div className="w-full bg-[#8ab4f8]/10 border-2 border-[#8ab4f8]/50 rounded-xl p-4 mb-4 animate-pulse">
           <div className="flex items-center justify-center gap-2 text-[#8ab4f8]">
             <Navigation size={18} />
             <p className="font-bold text-sm">Runner is at your location — share the OTP!</p>
@@ -3066,15 +3067,15 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
         </div>
       )}
 
-      <div className="w-full max-w-2xl bg-[#202124] border border-[#3c4043] rounded-lg p-6 text-left mt-4 mb-6">
-        <div className="flex justify-between items-start mb-6">
+      <div className="w-full bg-[#202124] border border-[#3c4043] rounded-lg p-4 sm:p-6 text-left mt-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4 sm:mb-6">
           <div>
             <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Runner</p>
             <p className="text-lg font-medium text-white">{trackingOrder.runner_id?.split('@')[0] || 'Runner'}</p>
           </div>
           <div className="text-right">
             <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">Pickup OTP</p>
-            <p className="text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
+            <p className="text-xl sm:text-2xl font-mono tracking-widest text-[#8ab4f8]">{trackingOrder.pickup_code}</p>
           </div>
         </div>
         <div className="bg-[#fde293]/10 border border-[#fde293]/30 rounded-lg px-4 py-2.5 mb-6 flex items-start gap-2">
@@ -3088,7 +3089,7 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
         <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-3">Document Stack</p>
         <div className="space-y-3">
           {trackingOrder.file_metadata?.map((file: any, i: number) => (
-            <div key={i} className="flex justify-between items-center bg-[#292a2d] p-3 rounded border border-[#3c4043]">
+            <div key={i} className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-[#292a2d] p-3 rounded border border-[#3c4043] gap-1 sm:gap-2">
               <div>
                 <p className="text-sm font-medium text-[#e8eaed]">{file.name}</p>
                 <p className="text-xs text-[#9aa0a6]">{file.pages} pages • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • {file.copies || 1} Copies</p>

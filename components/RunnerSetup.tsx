@@ -140,7 +140,7 @@ export default function RunnerSetup() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md p-8 rounded-lg bg-[#292a2d] border border-[#3c4043] shadow-2xl relative overflow-hidden"
+        className="w-full max-w-md p-4 sm:p-6 lg:p-8 rounded-lg bg-[#292a2d] border border-[#3c4043] shadow-2xl relative overflow-hidden"
       >
         <div className="relative z-10">
           <div className="flex items-center gap-3 mb-8">
