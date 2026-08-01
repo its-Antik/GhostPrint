@@ -2760,11 +2760,11 @@ function OrderDetailCard({
                   </button>
                 )}
 
-                {/* File links — expire after 12 hours for privacy */}
+                {/* File links — expire after 24 hours for privacy */}
                 {(() => {
                   const orderAge = Date.now() - new Date(order.created_at).getTime();
-                  const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-                  const linksExpired = orderAge > TWELVE_HOURS;
+                  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+                  const linksExpired = orderAge > TWENTY_FOUR_HOURS;
                   const filesWithUrls = order.file_metadata?.filter((f: any) => f.url) || [];
 
                   if (filesWithUrls.length === 0) return null;
@@ -2772,7 +2772,7 @@ function OrderDetailCard({
                   if (linksExpired) {
                     return (
                       <span className="text-[10px] text-[#9aa0a6] italic">
-                        🔒 File links expired (12h privacy policy)
+                        🔒 File links expired (24h privacy policy)
                       </span>
                     );
                   }

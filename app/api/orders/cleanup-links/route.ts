@@ -8,9 +8,8 @@ const supabaseAdmin = createClient(
 
 /**
  * POST /api/orders/cleanup-links
- * 
- * Server-side cleanup: Nullifies file URLs in orders older than 12 hours.
- * This is the backend counterpart to the frontend 12h expiry check.
+ * Server-side cleanup: Nullifies file URLs in orders older than 24 hours.
+ * This is the backend counterpart to the frontend 24h expiry check.
  * 
  * Can be called by:
  * - A cron job (e.g., Vercel Cron, external scheduler)
@@ -28,13 +27,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const TWELVE_HOURS_AGO = new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString();
+    const TWENTY_FOUR_HOURS_AGO = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
-    // Fetch orders older than 12 hours that still have file URLs in metadata
+    // Fetch orders older than 24 hours that still have file URLs in metadata
     const { data: oldOrders, error: fetchErr } = await supabaseAdmin
       .from("orders")
       .select("id, file_metadata, created_at")
-      .lt("created_at", TWELVE_HOURS_AGO)
+      .lt("created_at", TWENTY_FOUR_HOURS_AGO)
       .not("file_metadata", "is", null);
 
     if (fetchErr) {
@@ -67,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Cleaned file links from ${cleaned} orders older than 12 hours.`,
+      message: `Cleaned file links from ${cleaned} orders older than 24 hours.`,
       total_checked: oldOrders?.length || 0,
       total_cleaned: cleaned,
     });
