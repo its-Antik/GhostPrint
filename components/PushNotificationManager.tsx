@@ -21,6 +21,21 @@ async function registerSW(): Promise<ServiceWorkerRegistration> {
   return navigator.serviceWorker.ready;
 }
 
+function urlBase64ToUint8Array(base64String: string) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding)
+    .replace(/\-/g, '+')
+    .replace(/_/g, '/');
+
+  const rawData = window.atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
 export default function PushNotificationManager() {
   const [isSupported, setIsSupported] = useState(false);
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
@@ -63,11 +78,20 @@ export default function PushNotificationManager() {
 
       const sub = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: publicKey,
+        applicationServerKey: urlBase64ToUint8Array(publicKey),
       });
 
       setSubscription(sub);
       setPermission("granted");
+      
+      // Play confirmation sound
+      try {
+        const audio = new Audio('/faaah.mp3');
+        audio.volume = 1.0;
+        await audio.play();
+      } catch (e) {
+        console.warn("Could not play sound", e);
+      }
 
       // Save subscription to the backend profile
       await fetch("/api/push/subscribe", {

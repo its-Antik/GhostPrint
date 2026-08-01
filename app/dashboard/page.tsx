@@ -3234,11 +3234,32 @@ function BuyerNotificationBanner({ compact }: { compact?: boolean }) {
     setIsSubscribing(true);
     try {
       const reg = await navigator.serviceWorker.ready;
+      const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!publicKey) throw new Error("VAPID public key not configured");
+      
+      const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+      const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+      const rawData = window.atob(base64);
+      const outputArray = new Uint8Array(rawData.length);
+      for (let i = 0; i < rawData.length; ++i) {
+        outputArray[i] = rawData.charCodeAt(i);
+      }
+      
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+        applicationServerKey: outputArray,
       });
       setSubscription(sub);
+      
+      // Play confirmation sound
+      try {
+        const audio = new Audio('/faaah.mp3');
+        audio.volume = 1.0;
+        await audio.play();
+      } catch (e) {
+        console.warn("Could not play sound", e);
+      }
+      
       await fetch('/api/push/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
