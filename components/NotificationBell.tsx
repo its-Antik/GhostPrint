@@ -102,70 +102,80 @@ export default function NotificationBell({
       {/* Notification Panel */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: 8, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.95 }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="absolute right-0 top-full mt-2 w-[calc(100vw-1.5rem)] sm:w-[360px] max-h-[480px] bg-[#292a2d] border border-[#3c4043] rounded-xl shadow-2xl shadow-black/40 overflow-hidden z-[200]"
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c4043]">
-              <h3 className="text-sm font-semibold text-white">Pagen Pings</h3>
-              <div className="flex items-center gap-2">
-                {unreadCount > 0 && (
+          <>
+            {/* Backdrop overlay on mobile */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-[199] sm:hidden"
+              onClick={onClose}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="fixed right-2 left-2 top-16 sm:absolute sm:right-0 sm:left-auto sm:top-full sm:mt-2 sm:w-[360px] max-h-[70vh] sm:max-h-[480px] bg-[#292a2d] border border-[#3c4043] rounded-2xl shadow-2xl shadow-black/50 overflow-hidden z-[200]"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c4043]">
+                <h3 className="text-sm font-semibold text-white">Pagen Pings</h3>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={onMarkAllRead}
+                      className="text-[10px] text-[#8ab4f8] hover:text-[#aecbfa] font-medium uppercase tracking-wider flex items-center gap-1 transition-colors"
+                    >
+                      <CheckCheck size={12} /> Mark all read
+                    </button>
+                  )}
                   <button
-                    onClick={onMarkAllRead}
-                    className="text-[10px] text-[#8ab4f8] hover:text-[#aecbfa] font-medium uppercase tracking-wider flex items-center gap-1 transition-colors"
+                    onClick={onClose}
+                    className="text-[#5f6368] hover:text-white transition-colors p-1"
                   >
-                    <CheckCheck size={12} /> Mark all read
+                    <X size={14} />
                   </button>
-                )}
-                <button
-                  onClick={onClose}
-                  className="text-[#5f6368] hover:text-white transition-colors p-1"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            </div>
-
-            {/* Notifications List */}
-            <div className="overflow-y-auto max-h-[420px] scrollbar-thin">
-              {notifications.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-12 text-[#5f6368]">
-                  <Bell size={32} className="mb-3 opacity-50" />
-                  <p className="text-sm">No notifications yet</p>
-                  <p className="text-xs mt-1">You'll see Pagen Pings here</p>
                 </div>
-              ) : (
-                notifications.map((notif) => (
-                  <div
-                    key={notif.id}
-                    className={`flex items-start gap-3 px-4 py-3 border-b border-[#3c4043]/50 hover:bg-white/[0.02] transition-colors ${
-                      !notif.is_read ? "bg-indigo-500/[0.04]" : ""
-                    }`}
-                  >
-                    <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 ${getIconBg(notif.type)}`}>
-                      {getIcon(notif.type)}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <p className={`text-sm leading-tight ${!notif.is_read ? "text-white font-medium" : "text-[#e8eaed]"}`}>
-                          {notif.title}
-                        </p>
-                        {!notif.is_read && (
-                          <span className="shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5" />
-                        )}
-                      </div>
-                      <p className="text-xs text-[#9aa0a6] mt-0.5 leading-relaxed">{notif.message}</p>
-                      <p className="text-[10px] text-[#5f6368] mt-1">{getTimeAgo(notif.created_at)}</p>
-                    </div>
+              </div>
+
+              {/* Notifications List */}
+              <div className="overflow-y-auto max-h-[calc(70vh-48px)] sm:max-h-[420px] scrollbar-thin">
+                {notifications.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-12 text-[#5f6368]">
+                    <Bell size={32} className="mb-3 opacity-50" />
+                    <p className="text-sm">No notifications yet</p>
+                    <p className="text-xs mt-1">You'll see Pagen Pings here</p>
                   </div>
-                ))
-              )}
-            </div>
-          </motion.div>
+                ) : (
+                  notifications.map((notif) => (
+                    <div
+                      key={notif.id}
+                      className={`flex items-start gap-3 px-4 py-3 border-b border-[#3c4043]/50 hover:bg-white/[0.02] transition-colors ${
+                        !notif.is_read ? "bg-indigo-500/[0.04]" : ""
+                      }`}
+                    >
+                      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5 ${getIconBg(notif.type)}`}>
+                        {getIcon(notif.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className={`text-sm leading-tight ${!notif.is_read ? "text-white font-medium" : "text-[#e8eaed]"}`}>
+                            {notif.title}
+                          </p>
+                          {!notif.is_read && (
+                            <span className="shrink-0 w-2 h-2 rounded-full bg-indigo-500 mt-1.5" />
+                          )}
+                        </div>
+                        <p className="text-xs text-[#9aa0a6] mt-0.5 leading-relaxed">{notif.message}</p>
+                        <p className="text-[10px] text-[#5f6368] mt-1">{getTimeAgo(notif.created_at)}</p>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
     </div>

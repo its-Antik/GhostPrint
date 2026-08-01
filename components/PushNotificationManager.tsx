@@ -84,7 +84,7 @@ export default function PushNotificationManager() {
       setSubscription(sub);
       setPermission("granted");
       
-      // Play confirmation sound
+      // Play confirmation sound + vibrate
       try {
         const audio = new Audio('/faaah.mp3');
         audio.volume = 1.0;
@@ -92,6 +92,7 @@ export default function PushNotificationManager() {
       } catch (e) {
         console.warn("Could not play sound", e);
       }
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 300]);
 
       // Save subscription to the backend profile
       await fetch("/api/push/subscribe", {

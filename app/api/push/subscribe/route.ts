@@ -17,14 +17,10 @@ export async function POST(req: NextRequest) {
 
     const { subscription } = await req.json();
 
-    if (!subscription) {
-      return NextResponse.json({ error: "Missing subscription" }, { status: 400 });
-    }
-
-    // Save the subscription to the user's profile
+    // Handle both subscribe (subscription object) and unsubscribe (null)
     const { error } = await supabaseAdmin
       .from("profiles")
-      .update({ push_subscription: subscription })
+      .update({ push_subscription: subscription || null })
       .eq("username", session.user.email);
 
     if (error) {

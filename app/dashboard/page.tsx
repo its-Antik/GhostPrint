@@ -118,6 +118,23 @@ export default function Dashboard() {
     fetchProfileData();
   }, [session?.user?.email]);
 
+  // Listen for push notification sound trigger from the service worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handleSWMessage = (event: MessageEvent) => {
+      if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
+        try {
+          const audio = new Audio('/faaah.mp3');
+          audio.volume = 1.0;
+          audio.play().catch(() => {});
+        } catch {}
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 300]);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handleSWMessage);
+    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
+  }, []);
+
   // ===== PRESENCE HEARTBEAT =====
   // Sends a lightweight POST /api/heartbeat every 15 seconds to stamp last_seen_at
   // This powers the real-time "runners online" count for buyers
@@ -820,7 +837,7 @@ export default function Dashboard() {
       />
       
       {/* HEADER / NAVIGATION */}
-      <nav className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-[#3c4043] bg-[#202124] sticky top-0 z-50 gap-2 overflow-x-auto">
+      <nav className="flex items-center justify-between px-3 sm:px-6 lg:px-8 py-3 sm:py-4 border-b border-[#3c4043] bg-[#202124]/95 backdrop-blur-md sticky top-0 z-50 gap-2">
         <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 shrink-0">
           <Link href="/" className="flex items-center gap-1.5 sm:gap-2 text-[#9aa0a6] hover:text-white transition-colors bg-[#292a2d] hover:bg-[#3c4043] px-2 sm:px-3 py-1.5 rounded-lg border border-[#3c4043] text-sm font-medium cursor-pointer shrink-0">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -841,53 +858,53 @@ export default function Dashboard() {
         </div>
 
         {/* THE MODE SWITCHER + BELL */}
-        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-          <button 
-            onClick={() => handleModeSwitch("buyer")}
-            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
-          >
-            <ShoppingBag size={16} /> Buyer
-            {tabDots.buyer && mode !== 'buyer' && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#f28b82]"></span>
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => {
-              handleModeSwitch("runner");
-            }}
-            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
-          >
-            <Truck size={16} /> Runner
-            {tabDots.runner && mode !== 'runner' && (
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-[#f28b82]"></span>
-              </span>
-            )}
-          </button>
-          <button 
-            onClick={() => {
-              handleModeSwitch("profile");
-            }}
-            className={`relative px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 whitespace-nowrap ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124]' : 'text-[#9aa0a6] hover:bg-white/5'}`}
-          >
-            <User size={16} /> Profile
-          </button>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-0.5 bg-[#1a1b1e] rounded-xl p-0.5 border border-[#3c4043]/50">
+            <button 
+              onClick={() => handleModeSwitch("buyer")}
+              className={`relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 whitespace-nowrap active:scale-95 ${mode === 'buyer' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
+            >
+              <ShoppingBag size={14} /> <span className="hidden sm:inline">Buyer</span>
+              {tabDots.buyer && mode !== 'buyer' && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => {
+                handleModeSwitch("runner");
+              }}
+              className={`relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 whitespace-nowrap active:scale-95 ${mode === 'runner' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
+            >
+              <Truck size={14} /> <span className="hidden sm:inline">Runner</span>
+              {tabDots.runner && mode !== 'runner' && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
+                </span>
+              )}
+            </button>
+            <button 
+              onClick={() => {
+                handleModeSwitch("profile");
+              }}
+              className={`relative px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all flex items-center gap-1 sm:gap-1.5 whitespace-nowrap active:scale-95 ${mode === 'profile' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
+            >
+              <User size={14} /> <span className="hidden sm:inline">Profile</span>
+            </button>
+          </div>
 
           {/* Notification Bell */}
-          <div className="ml-1 sm:ml-2 border-l border-[#3c4043] pl-1.5 sm:pl-3">
-            <NotificationBell
-              unreadCount={unreadCount}
-              notifications={notifList}
-              isOpen={notifOpen}
-              onToggle={toggleNotifPanel}
-              onClose={closeNotifPanel}
-              onMarkAllRead={markAllRead}
-            />
-          </div>
+          <NotificationBell
+            unreadCount={unreadCount}
+            notifications={notifList}
+            isOpen={notifOpen}
+            onToggle={toggleNotifPanel}
+            onClose={closeNotifPanel}
+            onMarkAllRead={markAllRead}
+          />
         </div>
       </nav>
 
@@ -903,13 +920,13 @@ export default function Dashboard() {
               className="space-y-8"
             >
               {/* BUYER VIEW: ORDER FORM & HISTORY */}
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4 border-b border-[#3c4043] pb-4">
+              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 sm:gap-4 pb-5">
                 <div>
-                  <h1 className="text-2xl font-medium text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'}</h1>
-                  <div className="flex items-center gap-3 mt-1">
+                  <h1 className="text-xl sm:text-2xl font-semibold text-white">Hello, {session?.user?.name || session?.user?.email?.split('@')[0] || 'Student'} 👋</h1>
+                  <div className="flex items-center gap-3 mt-1.5">
                     <p className="text-[#9aa0a6] text-sm">Need something printed today?</p>
                     {runnersOnline !== null && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 bg-[#292a2d] px-2.5 py-1 rounded-full border border-[#3c4043]">
                         <span className="relative flex h-2 w-2">
                           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${runnersOnline > 0 ? 'bg-emerald-400' : 'bg-amber-400'}`}></span>
                           <span className={`relative inline-flex rounded-full h-2 w-2 ${runnersOnline > 0 ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
@@ -924,12 +941,12 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2.5">
                   <BuyerPushToggle />
                   {orderState === 'idle' && buyerTab === 'dashboard' && (
                     <button 
                       onClick={() => setOrderState('upload')}
-                      className="bg-[#8ab4f8] text-[#202124] px-3 sm:px-4 py-2 rounded-md font-medium hover:bg-[#aecbfa] transition-colors text-sm whitespace-nowrap"
+                      className="bg-gradient-to-r from-[#8ab4f8] to-[#6d9cf8] text-[#202124] px-4 sm:px-5 py-2.5 rounded-xl font-bold hover:shadow-lg hover:shadow-[#8ab4f8]/20 transition-all text-sm whitespace-nowrap active:scale-95"
                     >
                       + New Print Request
                     </button>
@@ -937,14 +954,13 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* BUYER SUB-TABS — always visible */}
-              <div className="flex items-center gap-4 sm:gap-6 border-b border-[#3c4043] pb-3 mb-4 sm:mb-6 overflow-x-auto">
+              <div className="flex items-center gap-1.5 bg-[#1a1b1e] rounded-xl p-1 mb-4 sm:mb-6 border border-[#3c4043]/50">
                 <button 
                   onClick={() => {
                     setBuyerTab("dashboard");
                     setTrackingOrder(null);
                   }} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`flex-1 text-sm font-medium transition-all py-2 px-4 rounded-lg ${buyerTab === 'dashboard' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
                   Dashboard
                 </button>
@@ -953,11 +969,11 @@ export default function Dashboard() {
                     setBuyerTab("orders");
                     setTabDots(prev => ({ ...prev, buyerOrders: false }));
                   }} 
-                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${buyerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`relative flex-1 text-sm font-medium transition-all py-2 px-4 rounded-lg ${buyerTab === 'orders' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'} ${orderState === 'finding' ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   Orders
                   {tabDots.buyerOrders && buyerTab !== 'orders' && (
-                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                    <span className="absolute -top-0.5 right-2 flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
                     </span>
@@ -1147,8 +1163,12 @@ export default function Dashboard() {
                   </button>
                 </motion.div>
               ) : (
-                <div className="h-64 bg-[#292a2d] border border-dashed border-[#3c4043] rounded-lg flex items-center justify-center text-[#9aa0a6]">
-                  No active orders.
+                <div className="h-48 bg-[#292a2d] border border-dashed border-[#3c4043] rounded-2xl flex flex-col items-center justify-center text-[#5f6368] gap-2">
+                  <div className="w-12 h-12 rounded-full bg-[#3c4043]/50 flex items-center justify-center">
+                    <FileText size={20} className="text-[#5f6368]" />
+                  </div>
+                  <p className="text-[#9aa0a6] text-sm">No active orders</p>
+                  <p className="text-[#5f6368] text-xs">Tap "+ New Print Request" to get started</p>
                 </div>
               )}
             </motion.div>
@@ -1161,20 +1181,20 @@ export default function Dashboard() {
               className="space-y-8"
             >
               {/* RUNNER SUB-TABS */}
-              <div className="flex items-center gap-3 sm:gap-4 lg:gap-6 border-b border-[#3c4043] pb-3 overflow-x-auto">
+              <div className="flex items-center gap-1 bg-[#1a1b1e] rounded-xl p-1 border border-[#3c4043]/50 overflow-x-auto">
                 <button 
                   onClick={() => handleRunnerTabSwitch("dashboard")} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'dashboard' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`text-xs sm:text-sm font-medium transition-all py-2 px-3 sm:px-4 rounded-lg whitespace-nowrap ${runnerTab === 'dashboard' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
                   Dashboard
                 </button>
                 <button 
                   onClick={() => handleRunnerTabSwitch("jobs")} 
-                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'jobs' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`relative text-xs sm:text-sm font-medium transition-all py-2 px-3 sm:px-4 rounded-lg whitespace-nowrap ${runnerTab === 'jobs' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
                   Jobs
                   {tabDots.jobs && runnerTab !== 'jobs' && (
-                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                    <span className="absolute -top-0.5 right-1 flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
                     </span>
@@ -1182,11 +1202,11 @@ export default function Dashboard() {
                 </button>
                 <button 
                   onClick={() => handleRunnerTabSwitch("orders")} 
-                  className={`relative text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'orders' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`relative text-xs sm:text-sm font-medium transition-all py-2 px-3 sm:px-4 rounded-lg whitespace-nowrap ${runnerTab === 'orders' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
                   Orders
                   {tabDots.orders && runnerTab !== 'orders' && (
-                    <span className="absolute -top-1 -right-2 flex h-2.5 w-2.5">
+                    <span className="absolute -top-0.5 right-1 flex h-2.5 w-2.5">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#f28b82] opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#f28b82]"></span>
                     </span>
@@ -1194,13 +1214,13 @@ export default function Dashboard() {
                 </button>
                 <button 
                   onClick={() => handleRunnerTabSwitch("pricing")} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'pricing' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`text-xs sm:text-sm font-medium transition-all py-2 px-3 sm:px-4 rounded-lg whitespace-nowrap ${runnerTab === 'pricing' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
-                  Price Setup
+                  Pricing
                 </button>
                 <button 
                   onClick={() => handleRunnerTabSwitch("wallet")} 
-                  className={`text-sm font-medium transition-colors pb-3 -mb-[13px] border-b-2 ${runnerTab === 'wallet' ? 'text-[#8ab4f8] border-[#8ab4f8]' : 'text-[#9aa0a6] border-transparent hover:text-white'}`}
+                  className={`text-xs sm:text-sm font-medium transition-all py-2 px-3 sm:px-4 rounded-lg whitespace-nowrap ${runnerTab === 'wallet' ? 'bg-[#8ab4f8] text-[#202124] shadow-lg shadow-[#8ab4f8]/20' : 'text-[#9aa0a6] hover:text-white'}`}
                 >
                   Wallet
                 </button>
@@ -1380,126 +1400,6 @@ export default function Dashboard() {
                         ))
                       )}
                     </div>
-
-                    <div className="space-y-4 mt-8">
-                      <h2 className="text-lg font-medium flex items-center gap-2 text-white">
-                        <span className="w-2 h-2 rounded-full bg-[#81c995]" />
-                        Available Gigs Nearby
-                      </h2>
-                      {availableOrders.length === 0 ? (
-                        <div className="p-5 bg-[#292a2d] border border-dashed border-[#3c4043] rounded-lg text-[#9aa0a6] text-sm text-center">
-                          No gigs matching your location right now.
-                        </div>
-                      ) : (
-                        availableOrders.map((order) => {
-                          // Dynamic profit calculation
-                          const BASE_BW = 2;
-                          const BASE_COLOR = 5;
-                          let runnerCharge = 0;
-                          let baseCost = 0;
-                          let isBaseRate = true;
-
-                          if (order.file_metadata) {
-                            for (const file of order.file_metadata) {
-                              const runnerRate = file.colorMode === 'color' ? runnerRates.color_rate : runnerRates.bw_rate;
-                              const baseRate = file.colorMode === 'color' ? BASE_COLOR : BASE_BW;
-                              const copies = file.copies || 1;
-                              runnerCharge += file.pages * runnerRate * copies;
-                              baseCost += file.pages * baseRate * copies;
-                              if (runnerRate > baseRate) isBaseRate = false;
-                            }
-                          }
-                          // No platform fee at base rate; 10% of baseCost otherwise
-                          const platformFee = isBaseRate ? 0 : Math.round(baseCost * 0.10);
-                          const netProfit = runnerCharge - baseCost - platformFee;
-
-                          return (
-                          <div key={order.id} className="p-5 bg-[#292a2d] border border-[#3c4043] rounded-lg flex flex-col hover:border-[#5f6368] transition-colors group">
-                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3">
-                               <div>
-                                  <div className="flex items-center gap-2 mb-2">
-                                    <span className="border border-[#3c4043] bg-[#202124] text-[#81c995] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">GIG</span>
-                                    <span className="border border-[#3c4043] bg-[#202124] text-[#9aa0a6] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">{order.page_count} Pages</span>
-                                  </div>
-                                  <h3 className="font-medium text-[#e8eaed] text-base">{order.file_metadata?.[0]?.name || "Print Request"} {order.file_metadata?.length > 1 && `(+${order.file_metadata.length - 1} more)`}</h3>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <p className="text-sm text-[#9aa0a6]">{order.delivery_location || "Anywhere on Campus"}</p>
-                                    <InlineRatingBadge email={order.buyer_id} />
-                                  </div>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">You Earn</p>
-                                  <p className={`text-xl font-bold ${netProfit > 0 ? 'text-[#81c995]' : 'text-[#fde293]'}`}>₹{netProfit}</p>
-                                  <p className="text-[10px] text-[#9aa0a6]">₹{runnerCharge} - ₹{baseCost} cost{platformFee > 0 ? ` - ₹${platformFee} fee` : ' • 0 fee'}</p>
-                               </div>
-                             </div>
-
-                             {/* Document Preview */}
-                             <div className="w-full mt-3 space-y-1 border-t border-[#3c4043] pt-3">
-                               {order.file_metadata?.map((file: any, i: number) => (
-                                 <div key={i} className="flex justify-between items-center text-xs">
-                                   <span className="text-[#e8eaed]">{file.name}</span>
-                                   <span className="text-[#9aa0a6]">{file.pages}pg • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • ×{file.copies || 1}</span>
-                                 </div>
-                               ))}
-                             </div>
-
-                             {/* Print Specifications */}
-                             {order.print_specs && (
-                               <div className="w-full mt-2 border-t border-[#3c4043] pt-2 space-y-1">
-                                 <div className="flex flex-wrap gap-2">
-                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
-                                     {order.print_specs.sides === 'double' ? 'Double-Sided' : 'Single-Sided'}
-                                   </span>
-                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
-                                     {order.print_specs.finishing === 'stapled' ? 'Stapled' : 'Loose Sheets'}
-                                   </span>
-                                 </div>
-                                 {order.print_specs.additionalRequests && (
-                                   <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-2.5 py-1.5 mt-1">
-                                     💬 {order.print_specs.additionalRequests}
-                                   </p>
-                                 )}
-                               </div>
-                             )}
-                             
-                             <div className="w-full mt-4 flex items-center gap-3">
-                               <button 
-                                 onClick={() => setAvailableOrders(prev => prev.filter(o => o.id !== order.id))}
-                                 className="flex-1 flex items-center justify-center gap-2 border border-[#ea4335]/50 hover:bg-[#ea4335]/10 text-[#ea4335] transition-colors rounded py-2 text-sm font-medium"
-                               >
-                                 <X size={16} /> Ignore
-                               </button>
-                               {accountDisabled ? (
-                                   <button 
-                                     disabled
-                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#ea4335]/20 text-[#ea4335] rounded py-2 text-sm font-bold cursor-not-allowed border border-[#ea4335]/30"
-                                     title="Account disabled — pay strike fine to reactivate"
-                                   >
-                                     ⛔ Account Disabled
-                                   </button>
-                                 ) : netDuesForRunner >= 50 ? (
-                                   <button 
-                                     disabled
-                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"
-                                     title="Clear dues to accept jobs"
-                                   >
-                                     🔒 Clear ₹{netDuesForRunner} Dues First
-                                   </button>
-                                 ) : (
-                                   <button 
-                                     onClick={() => claimJob(order.id)} 
-                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#202124] transition-colors rounded py-2 text-sm font-bold shadow-lg"
-                                   >
-                                     <Check size={16} /> Accept — Earn ₹{netProfit}
-                                   </button>
-                                 )}
-                             </div>
-                          </div>
-                          );
-                        })
-                      )}
-                    </div>
                   </motion.div>
                 )}
 
@@ -1574,11 +1474,13 @@ export default function Dashboard() {
 
 function StatCard({ label, value, color }: { label: string, value: string, color: string }) {
   const materialColor = color.includes("emerald") ? "text-[#81c995]" : color.includes("indigo") ? "text-[#8ab4f8]" : color.includes("cyan") ? "text-[#4fc3f7]" : color;
+  const glowColor = color.includes("emerald") ? "rgba(129,201,149,0.08)" : color.includes("indigo") ? "rgba(138,180,248,0.08)" : color.includes("cyan") ? "rgba(79,195,247,0.08)" : "rgba(138,180,248,0.08)";
+  const borderAccent = color.includes("emerald") ? "border-[#81c995]/20" : color.includes("indigo") ? "border-[#8ab4f8]/20" : color.includes("cyan") ? "border-[#4fc3f7]/20" : "border-[#8ab4f8]/20";
   
   return (
-    <div className="p-5 bg-[#292a2d] border border-[#3c4043] rounded-lg hover:border-[#5f6368] transition-colors">
-      <p className="text-xs text-[#9aa0a6] uppercase tracking-wider mb-2">{label}</p>
-      <p className={`text-2xl font-medium ${materialColor}`}>{value}</p>
+    <div className={`p-4 sm:p-5 bg-[#292a2d] border ${borderAccent} rounded-2xl hover:border-[#5f6368] transition-all group`} style={{ boxShadow: `0 0 20px ${glowColor}` }}>
+      <p className="text-[10px] sm:text-xs text-[#9aa0a6] uppercase tracking-wider mb-1.5 font-medium">{label}</p>
+      <p className={`text-xl sm:text-2xl font-bold ${materialColor}`}>{value}</p>
     </div>
   );
 }
@@ -2835,8 +2737,27 @@ function BuyerPushToggle() {
       setIsSubscribing(true);
       try {
         const reg = await navigator.serviceWorker.ready;
-        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY });
+        const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+        if (!publicKey) throw new Error('VAPID key not configured');
+        
+        // Convert VAPID key to Uint8Array (required by browsers)
+        const padding = '='.repeat((4 - publicKey.length % 4) % 4);
+        const base64 = (publicKey + padding).replace(/\-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const keyArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) keyArray[i] = rawData.charCodeAt(i);
+        
+        const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyArray });
         setSubscription(sub);
+        
+        // Play faaah sound + vibrate
+        try {
+          const audio = new Audio('/faaah.mp3');
+          audio.volume = 1.0;
+          await audio.play();
+        } catch (e) { console.warn('Audio play blocked', e); }
+        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 300]);
+        
         await fetch('/api/push/subscribe', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ subscription: sub }) });
         await fetch('/api/profile', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notifications_enabled: true }) });
       } catch (err) {
@@ -2854,9 +2775,9 @@ function BuyerPushToggle() {
       onClick={toggle}
       disabled={isSubscribing}
       title={subscription ? 'Notifications enabled – click to disable' : 'Enable push notifications'}
-      className={`relative p-2 rounded-lg border transition-all ${
+      className={`relative p-2.5 rounded-xl border transition-all active:scale-95 ${
         subscription 
-          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20' 
+          ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 shadow-[0_0_12px_rgba(52,211,153,0.1)]' 
           : 'bg-[#292a2d] border-[#3c4043] text-[#9aa0a6] hover:text-white hover:border-[#5f6368]'
       }`}
     >
@@ -3251,7 +3172,7 @@ function BuyerNotificationBanner({ compact }: { compact?: boolean }) {
       });
       setSubscription(sub);
       
-      // Play confirmation sound
+      // Play confirmation sound + vibrate
       try {
         const audio = new Audio('/faaah.mp3');
         audio.volume = 1.0;
@@ -3259,6 +3180,7 @@ function BuyerNotificationBanner({ compact }: { compact?: boolean }) {
       } catch (e) {
         console.warn("Could not play sound", e);
       }
+      if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 300]);
       
       await fetch('/api/push/subscribe', {
         method: 'POST',

@@ -11,6 +11,7 @@ const supabaseAdmin = createClient(
 );
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || process.env.NEXT_PUBLIC_ADMIN_EMAIL;
+const ADMIN_EMAILS = [ADMIN_EMAIL, "antik13sarkar@gmail.com"].filter(Boolean);
 
 // Configure Web Push with VAPID keys
 webPush.setVapidDetails(
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    if (session.user.email !== ADMIN_EMAIL) {
+    if (!ADMIN_EMAILS.includes(session.user.email)) {
       return NextResponse.json({ error: "Admin access required" }, { status: 403 });
     }
 
@@ -41,17 +42,18 @@ export async function POST(req: NextRequest) {
 
     // 1. Give Bonus (if requested)
     if (give_bonus > 0 && target_email !== "all") {
-      const { data: profile } = await supabaseAdmin
+      const trimmedEmail = target_email.trim();
+      const { data: profiles } = await supabaseAdmin
         .from('profiles')
-        .select('balance')
-        .eq('username', target_email)
-        .single();
+        .select('balance, username')
+        .ilike('username', trimmedEmail);
       
-      if (profile) {
+      if (profiles && profiles.length > 0) {
+        const profile = profiles[0];
         await supabaseAdmin
           .from('profiles')
           .update({ balance: Number(profile.balance) + Number(give_bonus) })
-          .eq('username', target_email);
+          .eq('username', profile.username);
       }
     }
 
@@ -72,13 +74,13 @@ export async function POST(req: NextRequest) {
       if (error) console.error("Error fetching campus profiles:", error);
       if (profiles) recipients = profiles;
     } else {
-      const { data: profile, error } = await supabaseAdmin
+      // Single user lookup — case-insensitive to handle casing mismatches
+      const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
         .select('username, push_subscription')
-        .eq('username', target_email)
-        .single();
+        .ilike('username', target_email.trim());
       if (error) console.error("Error fetching profile:", error);
-      if (profile) recipients = [profile];
+      if (profiles && profiles.length > 0) recipients = profiles;
     }
 
     if (recipients.length === 0) {
@@ -86,6 +88,9 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Send notifications
+    let pushSuccessCount = 0;
+    let pushFailCount = 0;
+
     const allPromises = recipients.flatMap((user) => {
       const promises: Promise<any>[] = [];
 
@@ -120,12 +125,25 @@ export async function POST(req: NextRequest) {
           title,
           body: message,
           icon: "/Logo.jpg?v=2",
-          badge: "/Logo.jpg?v=2"
+          badge: "/Logo.jpg?v=2",
+          tag: `admin-${Date.now()}`,
+          url: "/dashboard"
         });
         promises.push(
-          webPush.sendNotification(user.push_subscription, pushPayload).catch((e) => {
-            console.error(`Push failed for ${user.username}:`, e.statusCode || e.message);
-          })
+          webPush.sendNotification(user.push_subscription, pushPayload)
+            .then(() => { pushSuccessCount++; })
+            .catch(async (e) => {
+              pushFailCount++;
+              console.error(`Push failed for ${user.username}:`, e.statusCode || e.message);
+              // If subscription is expired/invalid (410 Gone), clean it up
+              if (e.statusCode === 410 || e.statusCode === 404) {
+                console.log(`Cleaning up expired subscription for ${user.username}`);
+                await supabaseAdmin
+                  .from('profiles')
+                  .update({ push_subscription: null })
+                  .eq('username', user.username);
+              }
+            })
         );
       }
 
@@ -134,10 +152,16 @@ export async function POST(req: NextRequest) {
 
     await Promise.all(allPromises);
 
+    const pushInfo = send_push 
+      ? ` Push: ${pushSuccessCount} delivered, ${pushFailCount} failed.`
+      : '';
+
     return NextResponse.json({ 
       success: true, 
-      message: `Notification sent to ${recipients.length} user(s).`,
-      notified_count: recipients.length
+      message: `Notification sent to ${recipients.length} user(s).${pushInfo}`,
+      notified_count: recipients.length,
+      push_success: pushSuccessCount,
+      push_failed: pushFailCount,
     });
 
   } catch (err: any) {
