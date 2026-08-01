@@ -965,6 +965,11 @@ export default function Dashboard() {
                 </button>
               </div>
               
+              {/* Push notification recommendation for buyers */}
+              {buyerTab === 'dashboard' && orderState === 'idle' && (
+                <BuyerNotificationBanner />
+              )}
+
               {buyerTab === 'orders' && orderState === 'idle' && trackingOrder ? (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
                   <button 
@@ -1106,6 +1111,11 @@ export default function Dashboard() {
                     <X size={16} />
                     Cancel Search
                   </button>
+
+                  {/* Enable notifications prompt below find runner */}
+                  <div className="mt-6 w-full max-w-sm">
+                    <BuyerNotificationBanner compact />
+                  </div>
                 </motion.div>
               ) : orderState === 'cancelled' ? (
                 <motion.div className="bg-[#292a2d] border border-[#ea4335]/50 rounded-xl p-10 flex flex-col items-center justify-center text-center shadow-[0_0_40px_rgba(234,67,53,0.1)]">
@@ -2869,7 +2879,40 @@ function BuyerPushToggle() {
 // BuyerTrackingView — buyer order tracking with Supabase realtime arrival alert (faaah.mp3 + vibrate)
 function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
   const [hasArrived, setHasArrived] = useState(!!trackingOrder?.arrived_at);
-  const [arrivalPlayed, setArrivalPlayed] = useState(false);
+  const arrivalPlayedRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUnlockedRef = useRef(false);
+
+  // Pre-load the audio element on mount so it's ready to play instantly
+  useEffect(() => {
+    const audio = new Audio('/faaah.mp3');
+    audio.preload = 'auto';
+    audioRef.current = audio;
+
+    // Unlock audio on the FIRST user interaction (click/touch anywhere)
+    // Browsers block audio unless triggered from a user gesture.
+    // We play a silent blip on the first interaction so the Audio element
+    // is "blessed" and can fire later from non-gesture code (e.g. realtime callback).
+    const unlockAudio = () => {
+      if (audioUnlockedRef.current) return;
+      audioUnlockedRef.current = true;
+      const a = audioRef.current;
+      if (a) {
+        a.volume = 0;
+        a.play().then(() => { a.pause(); a.currentTime = 0; a.volume = 1.0; })
+          .catch(() => {});
+      }
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+    document.addEventListener('click', unlockAudio, { once: false });
+    document.addEventListener('touchstart', unlockAudio, { once: false });
+
+    return () => {
+      document.removeEventListener('click', unlockAudio);
+      document.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
 
   // Check initial arrived state
   useEffect(() => {
@@ -2877,6 +2920,35 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
       setHasArrived(true);
     }
   }, [trackingOrder?.arrived_at]);
+
+  // Helper: play the arrival sound + vibrate
+  const playArrivalAlert = useCallback(() => {
+    if (arrivalPlayedRef.current) return;
+    arrivalPlayedRef.current = true;
+    setHasArrived(true);
+
+    // Play the FAAAH sound — volume at 1.0 means "as loud as the device allows".
+    // The actual loudness depends on the user's system/device volume setting.
+    const audio = audioRef.current;
+    if (audio) {
+      audio.currentTime = 0;
+      audio.volume = 1.0; // max relative volume — actual loudness depends on device setting
+      audio.play().catch((err) => {
+        console.warn('Audio play blocked:', err);
+        // Fallback: try creating a fresh Audio element
+        try {
+          const fallback = new Audio('/faaah.mp3');
+          fallback.volume = 1.0;
+          fallback.play().catch(() => {});
+        } catch (_) {}
+      });
+    }
+
+    // Vibrate phone alongside sound
+    if ('vibrate' in navigator) {
+      navigator.vibrate([300, 100, 300, 100, 500]);
+    }
+  }, []);
 
   // Listen for real-time arrival via Supabase
   useEffect(() => {
@@ -2893,23 +2965,8 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
           filter: `id=eq.${trackingOrder.id}`,
         },
         (payload: any) => {
-          if (payload.new.arrived_at && !arrivalPlayed) {
-            setHasArrived(true);
-            setArrivalPlayed(true);
-            
-            // Play the FAAAH sound at full volume
-            try {
-              const sound = new Audio('/faaah.mp3');
-              sound.volume = 1.0;
-              sound.play().catch((err) => console.log('Autoplay blocked:', err));
-            } catch (e) {
-              console.error('Audio play error:', e);
-            }
-            
-            // Vibrate phone alongside sound
-            if ('vibrate' in navigator) {
-              navigator.vibrate([300, 100, 300, 100, 500]);
-            }
+          if (payload.new.arrived_at) {
+            playArrivalAlert();
           }
         }
       )
@@ -2919,7 +2976,25 @@ function BuyerTrackingView({ trackingOrder }: { trackingOrder: any }) {
       channel.unsubscribe();
       supabase.removeChannel(channel);
     };
-  }, [trackingOrder?.id, arrivalPlayed]);
+  }, [trackingOrder?.id, playArrivalAlert]);
+
+  // Polling fallback: check for arrived_at every 3 seconds
+  // Supabase Realtime may not fire if RLS blocks it or connection drops
+  useEffect(() => {
+    if (!trackingOrder?.id || hasArrived) return;
+    const poll = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders?status=accepted,printing,ready,delivered&buyer_id=${encodeURIComponent(trackingOrder.buyer_id || '')}`);
+        const json = await res.json();
+        const updated = json.orders?.find((o: any) => o.id === trackingOrder.id);
+        if (updated?.arrived_at) {
+          playArrivalAlert();
+          clearInterval(poll);
+        }
+      } catch {}
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [trackingOrder?.id, trackingOrder?.buyer_id, hasArrived, playArrivalAlert]);
 
   return (
     <motion.div 
@@ -3133,6 +3208,114 @@ function RunnerArrivedAndHandshake({ order, onUpdateStatus, onHandshake, runnerC
           You must confirm arrival before completing the handshake.
         </p>
       )}
+    </div>
+  );
+}
+
+// BuyerNotificationBanner — recommends enabling push notifications, with inline enable button
+function BuyerNotificationBanner({ compact }: { compact?: boolean }) {
+  const [isSupported, setIsSupported] = useState(false);
+  const [subscription, setSubscription] = useState<PushSubscription | null>(null);
+  const [isSubscribing, setIsSubscribing] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      setIsSupported(true);
+      navigator.serviceWorker.ready.then(async (reg) => {
+        const sub = await reg.pushManager.getSubscription();
+        setSubscription(sub);
+      }).catch(() => {});
+    }
+  }, []);
+
+  const enableNotifications = async () => {
+    setIsSubscribing(true);
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY,
+      });
+      setSubscription(sub);
+      await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub }),
+      });
+      await fetch('/api/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notifications_enabled: true }),
+      });
+    } catch (err) {
+      console.error('Push subscribe failed:', err);
+    } finally {
+      setIsSubscribing(false);
+    }
+  };
+
+  // Don't show if not supported, already subscribed, or dismissed
+  if (!isSupported || subscription || dismissed) return null;
+
+  if (compact) {
+    return (
+      <div className="bg-[#292a2d] border border-[#8ab4f8]/30 rounded-lg p-3 text-center">
+        <p className="text-[#9aa0a6] text-xs mb-2">
+          🔔 Enable notifications to get alerted when your runner arrives
+        </p>
+        <button
+          onClick={enableNotifications}
+          disabled={isSubscribing}
+          className="bg-[#8ab4f8] text-[#202124] px-4 py-1.5 rounded-md text-xs font-bold hover:bg-[#aecbfa] transition-colors flex items-center justify-center gap-1.5 mx-auto"
+        >
+          {isSubscribing ? (
+            <div className="w-3 h-3 border-2 border-[#202124]/30 border-t-[#202124] rounded-full animate-spin" />
+          ) : (
+            <>
+              <Bell size={12} />
+              Enable Notifications
+            </>
+          )}
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-[#8ab4f8]/5 border border-[#8ab4f8]/20 rounded-xl p-4 flex items-center gap-4">
+      <div className="p-2.5 rounded-xl bg-[#8ab4f8]/10 text-[#8ab4f8] shrink-0">
+        <Bell size={20} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-white text-sm font-medium">Stay in the loop</p>
+        <p className="text-[#9aa0a6] text-xs mt-0.5">
+          It is recommended to enable push notifications to get notified when your runner has arrived at the delivery location.
+        </p>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          onClick={enableNotifications}
+          disabled={isSubscribing}
+          className="bg-[#8ab4f8] text-[#202124] px-4 py-2 rounded-lg text-xs font-bold hover:bg-[#aecbfa] transition-colors flex items-center gap-1.5"
+        >
+          {isSubscribing ? (
+            <div className="w-3 h-3 border-2 border-[#202124]/30 border-t-[#202124] rounded-full animate-spin" />
+          ) : (
+            <>
+              <Bell size={12} />
+              Enable
+            </>
+          )}
+        </button>
+        <button
+          onClick={() => setDismissed(true)}
+          className="text-[#9aa0a6] hover:text-white p-1 transition-colors"
+          title="Dismiss"
+        >
+          <X size={14} />
+        </button>
+      </div>
     </div>
   );
 }
