@@ -1,11 +1,3 @@
-self.addEventListener('install', function(event) {
-  self.skipWaiting();
-});
-
-self.addEventListener('activate', function(event) {
-  event.waitUntil(self.clients.claim());
-});
-
 self.addEventListener('push', function(event) {
   if (event.data) {
     const data = event.data.json();
@@ -19,8 +11,7 @@ self.addEventListener('push', function(event) {
       data: {
         dateOfArrival: Date.now(),
         primaryKey: data.primaryKey || '1',
-        url: data.url || '/dashboard',
-        playSound: true
+        url: data.url || '/dashboard'
       },
       actions: [
         {
@@ -36,19 +27,6 @@ self.addEventListener('push', function(event) {
 
     event.waitUntil(
       self.registration.showNotification(data.title || 'Pagen', options)
-        .then(function() {
-          // Tell all open clients to play the faaah sound
-          return self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-        })
-        .then(function(clientList) {
-          clientList.forEach(function(client) {
-            client.postMessage({
-              type: 'PLAY_NOTIFICATION_SOUND',
-              title: data.title,
-              body: data.body
-            });
-          });
-        })
     );
   }
 });

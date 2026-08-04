@@ -118,23 +118,6 @@ export default function Dashboard() {
     fetchProfileData();
   }, [session?.user?.email]);
 
-  // Listen for push notification sound trigger from the service worker
-  useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
-    const handleSWMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'PLAY_NOTIFICATION_SOUND') {
-        try {
-          const audio = new Audio('/faaah.mp3');
-          audio.volume = 1.0;
-          audio.play().catch(() => {});
-        } catch {}
-        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200, 100, 300]);
-      }
-    };
-    navigator.serviceWorker.addEventListener('message', handleSWMessage);
-    return () => navigator.serviceWorker.removeEventListener('message', handleSWMessage);
-  }, []);
-
   // ===== PRESENCE HEARTBEAT =====
   // Sends a lightweight POST /api/heartbeat every 15 seconds to stamp last_seen_at
   // This powers the real-time "runners online" count for buyers
@@ -1398,6 +1381,126 @@ export default function Dashboard() {
                             )}
                           </div>
                         ))
+                      )}
+                    </div>
+
+                    <div className="space-y-4 mt-8">
+                      <h2 className="text-lg font-medium flex items-center gap-2 text-white">
+                        <span className="w-2 h-2 rounded-full bg-[#81c995]" />
+                        Available Gigs Nearby
+                      </h2>
+                      {availableOrders.length === 0 ? (
+                        <div className="p-5 bg-[#292a2d] border border-dashed border-[#3c4043] rounded-lg text-[#9aa0a6] text-sm text-center">
+                          No gigs matching your location right now.
+                        </div>
+                      ) : (
+                        availableOrders.map((order) => {
+                          // Dynamic profit calculation
+                          const BASE_BW = 2;
+                          const BASE_COLOR = 5;
+                          let runnerCharge = 0;
+                          let baseCost = 0;
+                          let isBaseRate = true;
+
+                          if (order.file_metadata) {
+                            for (const file of order.file_metadata) {
+                              const runnerRate = file.colorMode === 'color' ? runnerRates.color_rate : runnerRates.bw_rate;
+                              const baseRate = file.colorMode === 'color' ? BASE_COLOR : BASE_BW;
+                              const copies = file.copies || 1;
+                              runnerCharge += file.pages * runnerRate * copies;
+                              baseCost += file.pages * baseRate * copies;
+                              if (runnerRate > baseRate) isBaseRate = false;
+                            }
+                          }
+                          // No platform fee at base rate; 10% of baseCost otherwise
+                          const platformFee = isBaseRate ? 0 : Math.round(baseCost * 0.10);
+                          const netProfit = runnerCharge - baseCost - platformFee;
+
+                          return (
+                          <div key={order.id} className="p-5 bg-[#292a2d] border border-[#3c4043] rounded-lg flex flex-col hover:border-[#5f6368] transition-colors group">
+                          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3">
+                               <div>
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="border border-[#3c4043] bg-[#202124] text-[#81c995] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">GIG</span>
+                                    <span className="border border-[#3c4043] bg-[#202124] text-[#9aa0a6] text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded">{order.page_count} Pages</span>
+                                  </div>
+                                  <h3 className="font-medium text-[#e8eaed] text-base">{order.file_metadata?.[0]?.name || "Print Request"} {order.file_metadata?.length > 1 && `(+${order.file_metadata.length - 1} more)`}</h3>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <p className="text-sm text-[#9aa0a6]">{order.delivery_location || "Anywhere on Campus"}</p>
+                                    <InlineRatingBadge email={order.buyer_id} />
+                                  </div>
+                               </div>
+                               <div className="text-right">
+                                  <p className="text-[#9aa0a6] text-xs uppercase tracking-wider mb-1">You Earn</p>
+                                  <p className={`text-xl font-bold ${netProfit > 0 ? 'text-[#81c995]' : 'text-[#fde293]'}`}>₹{netProfit}</p>
+                                  <p className="text-[10px] text-[#9aa0a6]">₹{runnerCharge} - ₹{baseCost} cost{platformFee > 0 ? ` - ₹${platformFee} fee` : ' • 0 fee'}</p>
+                               </div>
+                             </div>
+
+                             {/* Document Preview */}
+                             <div className="w-full mt-3 space-y-1 border-t border-[#3c4043] pt-3">
+                               {order.file_metadata?.map((file: any, i: number) => (
+                                 <div key={i} className="flex justify-between items-center text-xs">
+                                   <span className="text-[#e8eaed]">{file.name}</span>
+                                   <span className="text-[#9aa0a6]">{file.pages}pg • {file.colorMode === 'bw' ? 'B&W' : 'Color'} • ×{file.copies || 1}</span>
+                                 </div>
+                               ))}
+                             </div>
+
+                             {/* Print Specifications */}
+                             {order.print_specs && (
+                               <div className="w-full mt-2 border-t border-[#3c4043] pt-2 space-y-1">
+                                 <div className="flex flex-wrap gap-2">
+                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#8ab4f8]/30 bg-[#8ab4f8]/10 text-[#8ab4f8]">
+                                     {order.print_specs.sides === 'double' ? 'Double-Sided' : 'Single-Sided'}
+                                   </span>
+                                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded border border-[#81c995]/30 bg-[#81c995]/10 text-[#81c995]">
+                                     {order.print_specs.finishing === 'stapled' ? 'Stapled' : 'Loose Sheets'}
+                                   </span>
+                                 </div>
+                                 {order.print_specs.additionalRequests && (
+                                   <p className="text-xs text-[#fde293] bg-[#fde293]/10 border border-[#fde293]/20 rounded px-2.5 py-1.5 mt-1">
+                                     💬 {order.print_specs.additionalRequests}
+                                   </p>
+                                 )}
+                               </div>
+                             )}
+                             
+                             <div className="w-full mt-4 flex items-center gap-3">
+                               <button 
+                                 onClick={() => setAvailableOrders(prev => prev.filter(o => o.id !== order.id))}
+                                 className="flex-1 flex items-center justify-center gap-2 border border-[#ea4335]/50 hover:bg-[#ea4335]/10 text-[#ea4335] transition-colors rounded py-2 text-sm font-medium"
+                               >
+                                 <X size={16} /> Ignore
+                               </button>
+                               {accountDisabled ? (
+                                   <button 
+                                     disabled
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#ea4335]/20 text-[#ea4335] rounded py-2 text-sm font-bold cursor-not-allowed border border-[#ea4335]/30"
+                                     title="Account disabled — pay strike fine to reactivate"
+                                   >
+                                     ⛔ Account Disabled
+                                   </button>
+                                 ) : netDuesForRunner >= 50 ? (
+                                   <button 
+                                     disabled
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"
+                                     title="Clear dues to accept jobs"
+                                   >
+                                     🔒 Clear ₹{netDuesForRunner} Dues First
+                                   </button>
+                                 ) : (
+                                   <button 
+                                     onClick={() => claimJob(order.id)} 
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#8ab4f8] hover:bg-[#aecbfa] text-[#202124] transition-colors rounded py-2 text-sm font-bold shadow-lg"
+                                   >
+                                     <Check size={16} /> Accept — Earn ₹{netProfit}
+                                   </button>
+                                 )}
+                             </div>
+                          </div>
+                          );
+                        })
                       )}
                     </div>
                   </motion.div>
