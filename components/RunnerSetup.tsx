@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, User, Building, Phone, Star, AlertTriangle, Mail, ShieldAlert } from "lucide-react";
+import { CheckCircle2, User, Building, Phone, Star, AlertTriangle, Mail, ShieldAlert, X } from "lucide-react";
 import { useSession } from "next-auth/react";
 
 export default function RunnerSetup() {
@@ -19,6 +19,7 @@ export default function RunnerSetup() {
   const [payingFine, setPayingFine] = useState(false);
   const [netDues, setNetDues] = useState(0);
   const [payingDues, setPayingDues] = useState(false);
+  const [showQR, setShowQR] = useState(false);
 
   // Load existing profile data via API
   useEffect(() => {
@@ -236,11 +237,10 @@ export default function RunnerSetup() {
                 </p>
                 {strikeCount >= 3 && (
                   <button
-                    onClick={handlePayFine}
-                    disabled={payingFine}
-                    className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-lg hover:bg-[#ffe599] transition-colors text-sm disabled:opacity-50"
+                    onClick={() => setShowQR(true)}
+                    className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-lg hover:bg-[#ffe599] transition-colors text-sm"
                   >
-                    {payingFine ? 'Processing...' : '⚡ Pay ₹100 Strike Fine to Reactivate'}
+                    ⚡ Pay ₹100 Strike Fine to Reactivate
                   </button>
                 )}
               </div>
@@ -274,11 +274,10 @@ export default function RunnerSetup() {
                     }
                   </p>
                   <button
-                    onClick={handlePayDues}
-                    disabled={payingDues}
-                    className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-lg hover:bg-[#ffe599] transition-colors text-sm disabled:opacity-50"
+                    onClick={() => setShowQR(true)}
+                    className="w-full mt-3 bg-[#fde293] text-[#202124] font-bold py-3 rounded-lg hover:bg-[#ffe599] transition-colors text-sm"
                   >
-                    {payingDues ? 'Processing...' : `💸 Pay ₹${netDues.toFixed(2)} to Clear Dues`}
+                    💸 Pay ₹{netDues.toFixed(2)} to Clear Dues
                   </button>
                 </div>
               )}
@@ -342,6 +341,37 @@ export default function RunnerSetup() {
           )}
         </div>
       </motion.div>
+
+      {/* QR Payment Modal */}
+      {showQR && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+          onClick={() => setShowQR(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="flex flex-col items-center gap-4 p-6 rounded-xl bg-[#292a2d] border border-[#3c4043] shadow-2xl max-w-sm mx-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-white font-semibold text-sm tracking-wide">Scan to Pay</p>
+            <img
+              src="/QR.jpeg"
+              alt="Payment QR Code"
+              className="w-64 h-64 object-contain rounded-lg border border-[#3c4043]"
+            />
+            <button
+              onClick={() => setShowQR(false)}
+              className="flex items-center gap-2 mt-2 px-6 py-2.5 bg-[#ea4335] hover:bg-[#d93025] text-white font-bold rounded-lg transition-colors text-sm"
+            >
+              <X size={16} />
+              Close
+            </button>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

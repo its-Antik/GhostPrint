@@ -143,12 +143,21 @@ export default function ContactPage() {
                   )}
                 </button>
 
-                <p className="text-center text-gray-500 text-xs mt-4">
-                  or email us directly at{" "}
-                  <a href="mailto:unsupervised.labs@proton.me" className="text-indigo-400 hover:text-indigo-300 transition-colors">
-                    unsupervised.labs@proton.me
-                  </a>
-                </p>
+                <div className="text-center mt-4 space-y-2">
+                  <p className="text-gray-500 text-xs">
+                    or email us directly at{" "}
+                    <a href="mailto:unsupervised.labs@proton.me" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                      unsupervised.labs@proton.me
+                    </a>
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    or contact us directly through call or WhatsApp at{" "}
+                    <a href="tel:+918250974229" className="text-indigo-400 hover:text-indigo-300 transition-colors">
+                      +91 82509 74229
+                    </a>
+                    {" "}(Mon-Fri 10 AM - 6 PM)
+                  </p>
+                </div>
               </form>
             </motion.div>
           ) : (
