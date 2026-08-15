@@ -55,37 +55,54 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // 2. Determine recipients
+    // 2. Determine recipients (select only guaranteed columns first)
     const normalizedTarget = target_email.trim().toLowerCase();
     let recipients: { username: string; push_subscription?: any }[] = [];
     if (normalizedTarget === "all") {
       // Global broadcast — all users
-      const { data: profiles, error, count } = await supabaseAdmin
+      const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
-        .select('username, push_subscription', { count: 'exact' });
+        .select('username');
       if (error) console.error("Error fetching all profiles:", error);
-      console.log(`[Admin Notify] Broadcast to ALL — found ${count ?? profiles?.length ?? 0} profiles`);
       if (profiles) recipients = profiles;
     } else if (normalizedTarget.startsWith("all@")) {
       // MULTI-TENANT: Domain-scoped broadcast — e.g., "all@heritageit.edu.in"
       const domain = normalizedTarget.split("@")[1];
       const { data: profiles, error } = await supabaseAdmin
          .from('profiles')
-         .select('username, push_subscription')
+         .select('username')
          .ilike('college_domain', domain);
       if (error) console.error("Error fetching campus profiles:", error);
-      console.log(`[Admin Notify] Broadcast to domain "${domain}" — found ${profiles?.length ?? 0} profiles`);
       if (profiles) recipients = profiles;
     } else {
       // Single user — try case-insensitive match on username (email)
       const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
-        .select('username, push_subscription')
+        .select('username')
         .ilike('username', normalizedTarget);
       if (error) console.error("Error fetching profile:", error);
-      console.log(`[Admin Notify] Single target "${normalizedTarget}" — found ${profiles?.length ?? 0} profiles`);
       if (profiles && profiles.length > 0) recipients = profiles;
     }
+
+    // Try to enrich with push_subscription (column may not exist yet)
+    if (recipients.length > 0) {
+      try {
+        const emails = recipients.map(r => r.username);
+        const { data: pushData } = await supabaseAdmin
+          .from('profiles')
+          .select('username, push_subscription')
+          .in('username', emails);
+        if (pushData) {
+          const pushMap = new Map(pushData.map(p => [p.username, p.push_subscription]));
+          recipients = recipients.map(r => ({ ...r, push_subscription: pushMap.get(r.username) }));
+        }
+      } catch {
+        // push_subscription column doesn't exist yet — skip push enrichment
+        console.log("[Admin Notify] push_subscription column not available, skipping push enrichment");
+      }
+    }
+
+    console.log(`[Admin Notify] Target: "${normalizedTarget}" — found ${recipients.length} recipient(s)`);
 
     if (recipients.length === 0) {
       return NextResponse.json({ error: `No matching users found for "${target_email}"` }, { status: 404 });
