@@ -1483,11 +1483,17 @@ export default function Dashboard() {
                                    </button>
                                  ) : netDuesForRunner >= 50 ? (
                                    <button 
-                                     disabled
-                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#3c4043] text-[#5f6368] rounded py-2 text-sm font-bold cursor-not-allowed"
+
+                                     onClick={() => router.push('/profile')}
+
+                                     className="flex-[2] flex items-center justify-center gap-2 bg-[#fbbc04]/20 hover:bg-[#fbbc04]/30 text-[#fbbc04] border border-[#fbbc04]/30 rounded py-2 text-sm font-bold cursor-pointer transition-colors"
+
                                      title="Clear dues to accept jobs"
+
                                    >
+
                                      🔒 Clear ₹{netDuesForRunner} Dues First
+
                                    </button>
                                  ) : (
                                    <button 

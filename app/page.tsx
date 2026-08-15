@@ -282,7 +282,7 @@ export default function LandingPage() {
                       <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-widest">Core Operations (Unsupervised Labs)</h3>
                     </div>
                     <p className="text-gray-400 text-sm leading-relaxed mb-3">
-                      Pagen is operated by a small, faceless team. We are currently looking for <strong className="text-white">one</strong> highly capable student to join the core administrative team to monitor the grid and scale the architecture.
+                      Pagen is operated by a small team. We are currently looking for <strong className="text-white">one</strong> highly capable student to join the core administrative team to monitor the grid and scale the architecture.
                     </p>
                     <p className="text-gray-500 text-sm leading-relaxed mb-5">
                       You need to be analytical, capable of keeping secrets, and comfortable with modern web infrastructure. We don&apos;t do traditional interviews.
