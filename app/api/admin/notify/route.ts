@@ -40,49 +40,55 @@ export async function POST(req: NextRequest) {
     }
 
     // 1. Give Bonus (if requested)
-    if (give_bonus > 0 && target_email !== "all") {
+    if (give_bonus > 0 && target_email.trim().toLowerCase() !== "all") {
       const { data: profile } = await supabaseAdmin
         .from('profiles')
         .select('balance')
-        .eq('username', target_email)
+        .ilike('username', target_email.trim())
         .single();
       
       if (profile) {
         await supabaseAdmin
           .from('profiles')
           .update({ balance: Number(profile.balance) + Number(give_bonus) })
-          .eq('username', target_email);
+          .ilike('username', target_email.trim());
       }
     }
 
     // 2. Determine recipients
+    const normalizedTarget = target_email.trim().toLowerCase();
     let recipients: { username: string; push_subscription?: any }[] = [];
-    if (target_email === "all") {
+    if (normalizedTarget === "all") {
       // Global broadcast — all users
-      const { data: profiles, error } = await supabaseAdmin.from('profiles').select('username, push_subscription');
+      const { data: profiles, error, count } = await supabaseAdmin
+        .from('profiles')
+        .select('username, push_subscription', { count: 'exact' });
       if (error) console.error("Error fetching all profiles:", error);
+      console.log(`[Admin Notify] Broadcast to ALL — found ${count ?? profiles?.length ?? 0} profiles`);
       if (profiles) recipients = profiles;
-    } else if (target_email.startsWith("all@")) {
+    } else if (normalizedTarget.startsWith("all@")) {
       // MULTI-TENANT: Domain-scoped broadcast — e.g., "all@heritageit.edu.in"
-      const domain = target_email.split("@")[1];
+      const domain = normalizedTarget.split("@")[1];
       const { data: profiles, error } = await supabaseAdmin
          .from('profiles')
          .select('username, push_subscription')
-         .eq('college_domain', domain);
+         .ilike('college_domain', domain);
       if (error) console.error("Error fetching campus profiles:", error);
+      console.log(`[Admin Notify] Broadcast to domain "${domain}" — found ${profiles?.length ?? 0} profiles`);
       if (profiles) recipients = profiles;
     } else {
-      const { data: profile, error } = await supabaseAdmin
+      // Single user — try case-insensitive match on username (email)
+      const { data: profiles, error } = await supabaseAdmin
         .from('profiles')
         .select('username, push_subscription')
-        .eq('username', target_email)
-        .single();
+        .ilike('username', normalizedTarget);
       if (error) console.error("Error fetching profile:", error);
-      if (profile) recipients = [profile];
+      console.log(`[Admin Notify] Single target "${normalizedTarget}" — found ${profiles?.length ?? 0} profiles`);
+      if (profiles && profiles.length > 0) recipients = profiles;
     }
 
     if (recipients.length === 0) {
-      return NextResponse.json({ error: "No matching users found" }, { status: 404 });
+      return NextResponse.json({ error: `No matching users found for "${target_email}"` }, { status: 404 });
     }
 
     // 3. Send notifications
